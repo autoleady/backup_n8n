@@ -1,0 +1,470 @@
+{
+  "updatedAt": "2026-04-04T10:08:57.859Z",
+  "createdAt": "2026-04-04T10:08:57.297Z",
+  "id": "4mUuyDeOldKeIuP5",
+  "name": "1. Onboarding - Rejestracja z Etapami FINAL",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "onboarding-rejestracja",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b082cf11-25ca-4c97-b6d2-860d9c15d5af",
+      "name": "Webhook Rejestracja",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1056,
+        208
+      ],
+      "webhookId": "84f44de4-1d89-4e5e-930d-c302398029d2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst data = raw.body || raw;\n\n// Konfiguracja zespołów\nconst TEAMS = {\n  'hostessy': {\n    listId: 'LIST_ID_HOSTESSY',\n    managerEmail: 'manager.hostessy@firma.pl',\n    typProduktu: 'Coca-Cola',\n    godzinaStart: '08:00',\n    godzinaKoniec: '18:00'\n  },\n  'rejestracja': {\n    listId: 'LIST_ID_REJESTRACJA',\n    managerEmail: 'manager.rejestracja@firma.pl',\n    typProduktu: 'Identyfikatory',\n    godzinaStart: '07:30',\n    godzinaKoniec: '17:00'\n  },\n  'logistyka': {\n    listId: 'LIST_ID_LOGISTYKA',\n    managerEmail: 'manager.logistyka@firma.pl',\n    typProduktu: 'Paczki',\n    godzinaStart: '07:00',\n    godzinaKoniec: '19:00'\n  },\n  'ochrona': {\n    listId: 'LIST_ID_OCHRONA',\n    managerEmail: 'manager.ochrona@firma.pl',\n    typProduktu: 'Przepustki',\n    godzinaStart: '06:00',\n    godzinaKoniec: '22:00'\n  },\n  'catering': {\n    listId: 'LIST_ID_CATERING',\n    managerEmail: 'manager.catering@firma.pl',\n    typProduktu: 'Posilki',\n    godzinaStart: '09:00',\n    godzinaKoniec: '20:00'\n  },\n  'vip': {\n    listId: 'LIST_ID_VIP',\n    managerEmail: 'manager.vip@firma.pl',\n    typProduktu: 'VIP Pakiety',\n    godzinaStart: '08:00',\n    godzinaKoniec: '18:00'\n  }\n};\n\nconst zespolKey = (data.zespol || '').toLowerCase().trim();\nconst teamConfig = TEAMS[zespolKey] || null;\n\n// Walidacja\nconst errors = [];\nif (!data.imie_nazwisko) errors.push('Brak imienia i nazwiska');\nif (!data.zespol) errors.push('Brak zespolu');\nif (!data.email) errors.push('Brak emaila');\nif (!teamConfig) errors.push('Nieznany zespol: ' + zespolKey);\n\n// Oblicz spoznienie\nconst now = new Date();\nconst godzina = data.godzina_przyjscia ||\n  now.getHours().toString().padStart(2,'0') + ':' +\n  now.getMinutes().toString().padStart(2,'0');\n\nlet spoznienie = 0;\nlet czyPunktualna = true;\nlet czySpozniona = false;\n\nif (teamConfig) {\n  const [hStart, mStart] = teamConfig.godzinaStart.split(':').map(Number);\n  const [hPrzyjscie, mPrzyjscie] = godzina.split(':').map(Number);\n  spoznienie = (hPrzyjscie * 60 + mPrzyjscie) - (hStart * 60 + mStart);\n  czyPunktualna = spoznienie <= 0;\n  czySpozniona = spoznienie > 15;\n}\n\nconst dataFormatted = now.toLocaleDateString('pl-PL');\n\nreturn [{\n  json: {\n    // Dane pracownika\n    imie_nazwisko: data.imie_nazwisko || '',\n    email: data.email || '',\n    telefon: data.telefon || '',\n    zespol: data.zespol || '',\n    stanPoczatkowy: parseInt(data.stan_poczatkowy) || 0,\n    \n    // Konfiguracja zespołu\n    teamConfig,\n    listId: teamConfig ? teamConfig.listId : null,\n    managerEmail: teamConfig ? teamConfig.managerEmail : null,\n    \n    // Czas\n    godzina,\n    spoznienie,\n    czyPunktualna,\n    czySpozniona,\n    dataFormatted,\n    timestamp: now.toISOString(),\n    \n    // Etap startowy\n    etapObecny: '2 - Zameldowal sie',\n    statusObecnosci: czySpozniona \n      ? 'Obecny - spoźniony' \n      : 'Obecny - punktualny',\n    \n    // Walidacja\n    errors,\n    isValid: errors.length === 0\n  }\n}];"
+      },
+      "id": "44641206-43c3-467c-94fe-5b563851ff0a",
+      "name": "Walidacja i Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cc6a5aef-35f2-4000-b262-6b52d6baa7a6",
+      "name": "Dane OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -624,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, errors: $json.errors }) }}",
+        "options": {}
+      },
+      "id": "4bee21f2-7038-408c-9dd4-daea321b01ff",
+      "name": "Response Błąd",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "ae4c8da1-6495-439a-9394-c5917850d903",
+      "name": "ClickUp Utwórz Task Główny",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -400,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const walidacja = $('Walidacja i Config').item.json;\nconst taskResponse = $input.first().json;\n\nif (!taskResponse.id) {\n  throw new Error('Nie udalo sie stworzyc taska w ClickUp. Odpowiedz: ' + JSON.stringify(taskResponse));\n}\n\nreturn [{\n  json: {\n    taskId: taskResponse.id,\n    taskUrl: taskResponse.url,\n    taskName: taskResponse.name,\n    ...walidacja\n  }\n}];"
+      },
+      "id": "bb3a7072-9bf7-4cb3-ad3e-851227ac3178",
+      "name": "Zapisz Task ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "7fb02854-5e75-418f-8dbe-badb6edc630c",
+      "name": "Subtask 1 Zameldowanie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('Zapisz Task ID').item.json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "7ce452d0-d1bf-45cb-a7bb-d66a13162404",
+      "name": "Subtask 2 Raport Połówkowy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('Zapisz Task ID').item.json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "ed17a9ea-0e56-48f3-b7d2-c0a56fd96bbb",
+      "name": "Subtask 3 Raport Końcowy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond2",
+              "leftValue": "={{ $('Zapisz Task ID').item.json.czySpozniona }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a52ab2c7-210c-48ab-820e-69b8f52ea95c",
+      "name": "Czy Spóźniona?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        208,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('Zapisz Task ID').item.json.taskId }}/comment",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "28391d49-0004-42e3-9866-0b99ef534a4e",
+      "name": "Komentarz Alert Spóźnienie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        400,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "system@firma.pl",
+        "toEmail": "={{ $('Zapisz Task ID').item.json.managerEmail }}",
+        "subject": "=⚠️ Spóźnienie - {{ $('Zapisz Task ID').item.json.imie_nazwisko }} ({{ $('Zapisz Task ID').item.json.zespol }})",
+        "options": {}
+      },
+      "id": "77eb396f-12fa-4936-bebf-fe91eb25f55a",
+      "name": "Email Alert do Managera",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        400,
+        288
+      ],
+      "webhookId": "3c9bfafb-7cf2-4267-8366-2c70f83fe6e3"
+    },
+    {
+      "parameters": {
+        "fromEmail": "system@firma.pl",
+        "toEmail": "={{ $('Zapisz Task ID').item.json.email }}",
+        "subject": "=✅ Witaj {{ $('Zapisz Task ID').item.json.imie_nazwisko }}! Twój dyżur {{ $('Zapisz Task ID').item.json.dataFormatted }}",
+        "options": {}
+      },
+      "id": "a9df02a2-1433-4ba5-a036-40ab0bfa798a",
+      "name": "Email Powitalny do Pracownika",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        400,
+        464
+      ],
+      "webhookId": "f057953b-4530-4602-a39a-a8a9b96fa8d6"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  success: true,\n  message: 'Rejestracja zakonczona pomyslnie! Sprawdz email.',\n  taskId: $('Zapisz Task ID').item.json.taskId,\n  taskUrl: $('Zapisz Task ID').item.json.taskUrl,\n  etap: '2 - Zameldowal sie',\n  godzina: $('Zapisz Task ID').item.json.godzina\n}) }}",
+        "options": {}
+      },
+      "id": "584900c7-2585-4c0f-8e16-952bb29a794c",
+      "name": "Response Sukces",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        608,
+        304
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Rejestracja": {
+      "main": [
+        [
+          {
+            "node": "Walidacja i Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Walidacja i Config": {
+      "main": [
+        [
+          {
+            "node": "Dane OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dane OK?": {
+      "main": [
+        [
+          {
+            "node": "ClickUp Utwórz Task Główny",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response Błąd",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ClickUp Utwórz Task Główny": {
+      "main": [
+        [
+          {
+            "node": "Zapisz Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zapisz Task ID": {
+      "main": [
+        [
+          {
+            "node": "Subtask 1 Zameldowanie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subtask 1 Zameldowanie": {
+      "main": [
+        [
+          {
+            "node": "Subtask 2 Raport Połówkowy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subtask 2 Raport Połówkowy": {
+      "main": [
+        [
+          {
+            "node": "Subtask 3 Raport Końcowy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subtask 3 Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "Czy Spóźniona?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Czy Spóźniona?": {
+      "main": [
+        [
+          {
+            "node": "Komentarz Alert Spóźnienie",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Alert do Managera",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Powitalny do Pracownika",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Komentarz Alert Spóźnienie": {
+      "main": [
+        [
+          {
+            "node": "Email Powitalny do Pracownika",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Alert do Managera": {
+      "main": [
+        [
+          {
+            "node": "Email Powitalny do Pracownika",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Powitalny do Pracownika": {
+      "main": [
+        [
+          {
+            "node": "Response Sukces",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "af1c9dff-1560-4714-92a9-0692799ad34f",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:08:57.300Z",
+      "createdAt": "2026-04-04T10:08:57.300Z",
+      "role": "workflow:owner",
+      "workflowId": "4mUuyDeOldKeIuP5",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
