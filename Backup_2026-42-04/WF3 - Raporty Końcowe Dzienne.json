@@ -1,0 +1,1135 @@
+{
+  "updatedAt": "2026-04-04T10:09:17.661Z",
+  "createdAt": "2026-04-04T10:09:16.949Z",
+  "id": "g4MorgvewgnfKxYy",
+  "name": "WF3 - Raporty Końcowe Dzienne",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pracownik-rejestracja",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "13dea886-0538-4506-8579-02215437d359",
+      "name": "WEBHOOK - Rejestracja Pracownika",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1104,
+        240
+      ],
+      "webhookId": "3cb8ca71-da0d-4a52-a41a-2bd2a8f3e928"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// KONFIGURACJA ZESPOŁÓW\n// Podmień LIST_ID na prawdziwe ID z ClickUp\n// ============================================\n\nconst TEAMS_CONFIG = {\n  'hostessy': {\n    listId: 'LIST_ID_HOSTESSY',\n    managerEmail: 'manager.hostessy@agencja.pl',\n    managerName: 'Manager Hostess',\n    typProduktu: 'Coca-Cola',\n    jednostka: 'puszki',\n    godzinaStart: '08:00',\n    godzinaKoniec: '18:00',\n    godzinaRaportPolowkowy: '13:00',\n    maxSpoznienieAlertMin: 15,\n    maxSpoznienAlertZarzad: 3\n  },\n  'rejestracja': {\n    listId: 'LIST_ID_REJESTRACJA',\n    managerEmail: 'manager.rejestracja@agencja.pl',\n    managerName: 'Manager Rejestracji',\n    typProduktu: 'Identyfikatory',\n    jednostka: 'szt',\n    godzinaStart: '07:30',\n    godzinaKoniec: '17:00',\n    godzinaRaportPolowkowy: '12:30',\n    maxSpoznienieAlertMin: 10,\n    maxSpoznienAlertZarzad: 2\n  },\n  'logistyka': {\n    listId: 'LIST_ID_LOGISTYKA',\n    managerEmail: 'manager.logistyka@agencja.pl',\n    managerName: 'Manager Logistyki',\n    typProduktu: 'Paczki',\n    jednostka: 'szt',\n    godzinaStart: '07:00',\n    godzinaKoniec: '19:00',\n    godzinaRaportPolowkowy: '13:00',\n    maxSpoznienieAlertMin: 15,\n    maxSpoznienAlertZarzad: 3\n  },\n  'ochrona': {\n    listId: 'LIST_ID_OCHRONA',\n    managerEmail: 'manager.ochrona@agencja.pl',\n    managerName: 'Manager Ochrony',\n    typProduktu: 'Przepustki',\n    jednostka: 'szt',\n    godzinaStart: '06:00',\n    godzinaKoniec: '22:00',\n    godzinaRaportPolowkowy: '14:00',\n    maxSpoznienieAlertMin: 5,\n    maxSpoznienAlertZarzad: 2\n  },\n  'catering': {\n    listId: 'LIST_ID_CATERING',\n    managerEmail: 'manager.catering@agencja.pl',\n    managerName: 'Manager Cateringu',\n    typProduktu: 'Posilki',\n    jednostka: 'porcje',\n    godzinaStart: '09:00',\n    godzinaKoniec: '20:00',\n    godzinaRaportPolowkowy: '14:00',\n    maxSpoznienieAlertMin: 10,\n    maxSpoznienAlertZarzad: 3\n  },\n  'vip': {\n    listId: 'LIST_ID_VIP',\n    managerEmail: 'manager.vip@agencja.pl',\n    managerName: 'Manager VIP',\n    typProduktu: 'VIP Pakiety',\n    jednostka: 'szt',\n    godzinaStart: '08:00',\n    godzinaKoniec: '18:00',\n    godzinaRaportPolowkowy: '13:00',\n    maxSpoznienieAlertMin: 10,\n    maxSpoznienAlertZarzad: 2\n  }\n};\n\n// Stałe\nconst ZARZAD_EMAIL = 'zarzad@agencja.pl';\nconst ZARZAD_EMAIL_2 = 'dyrektor@agencja.pl';\nconst SYSTEM_EMAIL = 'system@agencja.pl';\n\n// Pobierz dane z webhooka\nconst raw = $input.first().json;\nconst data = raw.body || raw;\n\n// Normalizuj nazwę zespołu\nconst zespolKey = (data.zespol || '').toLowerCase()\n  .trim()\n  .replace(/ó/g, 'o')\n  .replace(/ą/g, 'a')\n  .replace(/ę/g, 'e')\n  .replace(/ś/g, 's')\n  .replace(/ź|ż/g, 'z')\n  .replace(/ć/g, 'c')\n  .replace(/ń/g, 'n')\n  .replace(/ł/g, 'l');\n\nconst teamConfig = TEAMS_CONFIG[zespolKey] || null;\n\n// Walidacja\nconst errors = [];\nif (!data.imie_nazwisko || data.imie_nazwisko.trim() === '') {\n  errors.push('Brak imienia i nazwiska');\n}\nif (!data.email || !data.email.includes('@')) {\n  errors.push('Nieprawidlowy email');\n}\nif (!data.zespol) {\n  errors.push('Brak nazwy zespolu');\n}\nif (!teamConfig) {\n  errors.push('Nieznany zespol: ' + data.zespol + '. Dostepne: ' + Object.keys(TEAMS_CONFIG).join(', '));\n}\nif (!data.stan_poczatkowy || isNaN(parseInt(data.stan_poczatkowy))) {\n  errors.push('Brak lub nieprawidlowy stan poczatkowy towaru');\n}\n\nif (errors.length > 0) {\n  return [{ json: { isValid: false, errors, data } }];\n}\n\n// Oblicz czas i spóźnienie\nconst now = new Date();\nconst godzinaPrzyjscia = data.godzina_przyjscia ||\n  now.getHours().toString().padStart(2, '0') + ':' +\n  now.getMinutes().toString().padStart(2, '0');\n\nconst [hP, mP] = godzinaPrzyjscia.split(':').map(Number);\nconst [hS, mS] = teamConfig.godzinaStart.split(':').map(Number);\nconst minutyPrzyjscia = hP * 60 + mP;\nconst minutyStart = hS * 60 + mS;\nconst spoznienieMiny = minutyPrzyjscia - minutyStart;\n\nconst czyPunktualna = spoznienieMiny <= 0;\nconst czySpozniona = spoznienieMiny > teamConfig.maxSpoznienieAlertMin;\n\nconst dataFormatted = now.toLocaleDateString('pl-PL', {\n  day: '2-digit', month: '2-digit', year: 'numeric'\n});\n\nconst dataNazwa = now.toLocaleDateString('pl-PL', {\n  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'\n});\n\nreturn [{\n  json: {\n    // Dane pracownika\n    imie_nazwisko: data.imie_nazwisko.trim(),\n    email: data.email.trim().toLowerCase(),\n    telefon: data.telefon || '',\n    zespol: data.zespol,\n    zespolKey,\n    stanPoczatkowy: parseInt(data.stan_poczatkowy),\n    uwagi: data.uwagi || '',\n\n    // Konfiguracja\n    teamConfig,\n    listId: teamConfig.listId,\n    managerEmail: teamConfig.managerEmail,\n    managerName: teamConfig.managerName,\n    zarzadEmail: ZARZAD_EMAIL,\n    zarzadEmail2: ZARZAD_EMAIL_2,\n    systemEmail: SYSTEM_EMAIL,\n\n    // Czas\n    godzinaPrzyjscia,\n    spoznienieMiny,\n    czyPunktualna,\n    czySpozniona,\n    dataFormatted,\n    dataNazwa,\n    timestamp: now.toISOString(),\n\n    // Status\n    etapStartowy: '2 - Zameldowana',\n    statusObecnosci: czySpozniona ? 'Obecny - spoźniony' : 'Obecny - punktualny',\n    postep: 25,\n\n    isValid: true,\n    errors: []\n  }\n}];\n"
+      },
+      "id": "5b533749-800c-4497-a465-52c57061f3e1",
+      "name": "WALIDACJA - Dane i Konfiguracja",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "if-valid",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f9c61b59-4987-4f34-8e9d-8a01ee3ba716",
+      "name": "IF - Dane Poprawne?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  success: false,\n  message: 'Blad walidacji danych',\n  errors: $json.errors\n}) }}",
+        "options": {}
+      },
+      "id": "5f916005-4bd5-42d5-b1f9-96f14dd8961b",
+      "name": "RESPONSE - Błąd Walidacji",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "97a77f1c-715a-43ed-8088-4ca274118235",
+      "name": "CLICKUP - Utwórz Task Główny",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -448,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('WALIDACJA - Dane i Konfiguracja').item.json;\nconst taskResp = $input.first().json;\n\nif (!taskResp.id) {\n  throw new Error('ClickUp nie zwrocil ID taska. Odpowiedz: ' + JSON.stringify(taskResp));\n}\n\nreturn [{\n  json: {\n    ...config,\n    taskId: taskResp.id,\n    taskUrl: taskResp.url,\n    taskName: taskResp.name\n  }\n}];\n"
+      },
+      "id": "f532064a-27b8-4f0a-8957-0376ff83004f",
+      "name": "ZAPISZ - Task ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "76819df7-fbe0-4c78-9b1e-567fe9c8daa5",
+      "name": "CLICKUP - Subtask Etap 1 Zameldowanie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('ZAPISZ - Task ID').item.json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "547e7f05-9685-4190-8e4a-844145662391",
+      "name": "CLICKUP - Subtask Etap 2 Rejestracja",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('ZAPISZ - Task ID').item.json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "4264d3fa-f7d0-4d5e-bb33-05fbe8c6a149",
+      "name": "CLICKUP - Subtask Etap 3 Towar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('ZAPISZ - Task ID').item.json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "90284362-1eb3-42d8-81c2-03982fb23470",
+      "name": "CLICKUP - Subtask Etap 4 Praca",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('ZAPISZ - Task ID').item.json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "7bee7f42-62b5-48f7-9887-2cc9836346cf",
+      "name": "CLICKUP - Subtask Etap 5 Raport 13:00",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('ZAPISZ - Task ID').item.json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "1458618a-1cc1-48e5-b65f-ccb0871184f0",
+      "name": "CLICKUP - Subtask Etap 6 Raport Końcowy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "if-spoź",
+              "leftValue": "={{ $('ZAPISZ - Task ID').item.json.czySpozniona }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "09e7d0ed-7782-46b2-b14a-6cbfb085a9b8",
+      "name": "IF - Czy Spóźniona?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        272,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('ZAPISZ - Task ID').item.json.taskId }}/comment",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "f60fa346-c8d9-4430-983d-85328213b8ee",
+      "name": "CLICKUP - Komentarz Spóźnienie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        464,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('ZAPISZ - Task ID').item.json.systemEmail }}",
+        "toEmail": "={{ $('ZAPISZ - Task ID').item.json.managerEmail }}",
+        "subject": "=⚠️ SPÓŹNIENIE | {{ $('ZAPISZ - Task ID').item.json.imie_nazwisko }} | {{ $('ZAPISZ - Task ID').item.json.zespol }} | {{ $('ZAPISZ - Task ID').item.json.spoznienieMiny }} min",
+        "options": {}
+      },
+      "id": "2fc0e96c-c8cd-43d7-bb35-7a6b4b735cd2",
+      "name": "EMAIL - Alert Spóźnienie do Managera",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        464,
+        224
+      ],
+      "webhookId": "9a5374e7-f666-40bd-9ded-0c690865ec91"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('ZAPISZ - Task ID').item.json.systemEmail }}",
+        "toEmail": "={{ $('ZAPISZ - Task ID').item.json.email }}",
+        "subject": "=✅ Witaj {{ $('ZAPISZ - Task ID').item.json.imie_nazwisko }}! Dyżur {{ $('ZAPISZ - Task ID').item.json.dataFormatted }} - Twoje zadania",
+        "options": {}
+      },
+      "id": "a6c42851-3935-4c19-ba58-8f47e380b42f",
+      "name": "EMAIL - Powitalny do Pracownika",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        672,
+        368
+      ],
+      "webhookId": "a7d97a48-2573-46b2-88fc-e0fe6235a347"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  success: true,\n  message: 'Rejestracja zakonczona! Sprawdz email z instrukcjami.',\n  pracownik: $('ZAPISZ - Task ID').item.json.imie_nazwisko,\n  zespol: $('ZAPISZ - Task ID').item.json.zespol,\n  taskId: $('ZAPISZ - Task ID').item.json.taskId,\n  taskUrl: $('ZAPISZ - Task ID').item.json.taskUrl,\n  etap: '2 - Zameldowana',\n  godzinaRejestracji: $('ZAPISZ - Task ID').item.json.godzinaPrzyjscia\n}) }}",
+        "options": {}
+      },
+      "id": "601651b4-c119-406b-ac7c-45282b351bbf",
+      "name": "RESPONSE - Sukces",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        912,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 6-22 * * *"
+            }
+          ]
+        }
+      },
+      "id": "93a4f76c-6648-4498-9ac4-372f9968628c",
+      "name": "SCHEDULER - Co 15 min (6:00-22:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1040,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const TEAMS = [\n  {\n    name: 'Hostessy',\n    key: 'hostessy',\n    listId: 'LIST_ID_HOSTESSY',\n    managerEmail: 'manager.hostessy@agencja.pl',\n    godzinaStart: '08:00',\n    maxSpoznMin: 15,\n    alertZarzadPo: 3\n  },\n  {\n    name: 'Rejestracja',\n    key: 'rejestracja',\n    listId: 'LIST_ID_REJESTRACJA',\n    managerEmail: 'manager.rejestracja@agencja.pl',\n    godzinaStart: '07:30',\n    maxSpoznMin: 10,\n    alertZarzadPo: 2\n  },\n  {\n    name: 'Logistyka',\n    key: 'logistyka',\n    listId: 'LIST_ID_LOGISTYKA',\n    managerEmail: 'manager.logistyka@agencja.pl',\n    godzinaStart: '07:00',\n    maxSpoznMin: 15,\n    alertZarzadPo: 3\n  },\n  {\n    name: 'Ochrona',\n    key: 'ochrona',\n    listId: 'LIST_ID_OCHRONA',\n    managerEmail: 'manager.ochrona@agencja.pl',\n    godzinaStart: '06:00',\n    maxSpoznMin: 5,\n    alertZarzadPo: 2\n  },\n  {\n    name: 'Catering',\n    key: 'catering',\n    listId: 'LIST_ID_CATERING',\n    managerEmail: 'manager.catering@agencja.pl',\n    godzinaStart: '09:00',\n    maxSpoznMin: 10,\n    alertZarzadPo: 3\n  },\n  {\n    name: 'VIP',\n    key: 'vip',\n    listId: 'LIST_ID_VIP',\n    managerEmail: 'manager.vip@agencja.pl',\n    godzinaStart: '08:00',\n    maxSpoznMin: 10,\n    alertZarzadPo: 2\n  }\n];\n\nconst now = new Date();\nconst currentHour = now.getHours();\nconst currentMin = now.getMinutes();\nconst currentTotalMin = currentHour * 60 + currentMin;\n\nreturn TEAMS.map(team => ({\n  json: {\n    ...team,\n    now: now.toISOString(),\n    currentTotalMin,\n    currentHour,\n    currentMin,\n    zarzadEmail: 'zarzad@agencja.pl',\n    systemEmail: 'system@agencja.pl'\n  }\n}));\n"
+      },
+      "id": "c587ccbc-4516-485a-82f8-10841800ea86",
+      "name": "SETUP - Konfiguracja Zespołów",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "false"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Zameldowana"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Oczekuje na start"
+            },
+            {
+              "name": "statuses[]",
+              "value": "W trakcie pracy"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Wymaga uwagi"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e9bf1cc0-1e11-4845-8e78-8a03732dd6c7",
+      "name": "CLICKUP - Pobierz Aktywne Taski",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -592,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const teamCfg = $('SETUP - Konfiguracja Zespołów').item.json;\nconst tasks = $input.first().json.tasks || [];\n\nconst now = new Date();\nconst [hStart, mStart] = teamCfg.godzinaStart.split(':').map(Number);\nconst startTotalMin = hStart * 60 + mStart;\nconst nowTotalMin = now.getHours() * 60 + now.getMinutes();\nconst minPoStartcie = nowTotalMin - startTotalMin;\n\n// Tylko sprawdzaj po czasie startu\nif (minPoStartcie < 0) {\n  return [{ json: { skip: true, reason: 'Za wczesnie', team: teamCfg.name } }];\n}\n\nconst problemy = [];\nconst statystyki = {\n  team: teamCfg.name,\n  lacznie: tasks.length,\n  obecni: 0,\n  spoznieni: 0,\n  nieobecni: 0,\n  bezRaportuPolowkowego: 0,\n  bezRaportuKoncowego: 0,\n  wymagaUwagi: 0\n};\n\ntasks.forEach(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => {\n    cf[f.name] = f.value;\n  });\n\n  const godzinaPrzyjscia = cf['Godzina Przyjscia'];\n  const statusObecnosci = cf['Status Obecnosci'];\n  const liczbaSpozn = parseInt(cf['Liczba Spoźnień'] || '0');\n  const raportPol = cf['Raport Polowkowy'];\n  const raportKon = cf['Raport Koncowy'];\n  const emailPrac = cf['Email Pracownika'];\n\n  // Czy jest obecny\n  if (godzinaPrzyjscia) {\n    statystyki.obecni++;\n    const [hP, mP] = godzinaPrzyjscia.split(':').map(Number);\n    const przyjTotal = hP * 60 + mP;\n    const spoznMin = przyjTotal - startTotalMin;\n\n    if (spoznMin > teamCfg.maxSpoznMin) {\n      statystyki.spoznieni++;\n      problemy.push({\n        typ: 'spoznienie',\n        taskId: task.id,\n        taskUrl: task.url,\n        imie: task.name.split(' | ')[0],\n        email: emailPrac,\n        spoznMin,\n        liczbaSpozn,\n        alertZarzad: liczbaSpozn >= teamCfg.alertZarzadPo,\n        wiadomosc: `Spóźnienie ${spoznMin} min (${liczbaSpozn + 1}x)`\n      });\n    }\n  } else if (minPoStartcie > 30) {\n    statystyki.nieobecni++;\n    problemy.push({\n      typ: 'nieobecnosc',\n      taskId: task.id,\n      taskUrl: task.url,\n      imie: task.name.split(' | ')[0],\n      email: emailPrac,\n      minutyPo: minPoStartcie,\n      alertZarzad: minPoStartcie > 60,\n      wiadomosc: `Nieobecna ${minPoStartcie} min po starcie`\n    });\n  }\n\n  // Sprawdź raport połówkowy (30 min po planowanym)\n  const godzinaRapPol = teamCfg.godzinaRaportPolowkowy || '13:00';\n  const [hRap, mRap] = (godzinaRapPol).split(':').map(Number);\n  const rapTotalMin = hRap * 60 + mRap;\n  if (nowTotalMin > rapTotalMin + 30 && !raportPol && godzinaPrzyjscia) {\n    statystyki.bezRaportuPolowkowego++;\n    problemy.push({\n      typ: 'brak_raportu_polowkowego',\n      taskId: task.id,\n      taskUrl: task.url,\n      imie: task.name.split(' | ')[0],\n      email: emailPrac,\n      alertZarzad: false,\n      wiadomosc: 'Brak raportu połówkowego'\n    });\n  }\n\n  if (task.status && task.status.status === 'Wymaga uwagi') {\n    statystyki.wymagaUwagi++;\n  }\n});\n\nreturn [{\n  json: {\n    ...teamCfg,\n    skip: false,\n    statystyki,\n    problemy,\n    maProblemy: problemy.length > 0,\n    alertZarzadWymagany: problemy.some(p => p.alertZarzad),\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "28c6f71e-7077-4fab-a455-434f301e6ea7",
+      "name": "ANALIZA - Spóźnienia i Problemy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "if-skip",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "if-prob",
+              "leftValue": "={{ $json.maProblemy }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f8c32f16-4738-4721-8a06-a06ea2dab7c6",
+      "name": "IF - Są Problemy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst problemy = data.problemy || [];\n\n// Buduj HTML emaila dla managera\nconst listaProbl = problemy.map(p => {\n  const kolor = p.typ === 'spoznienie' ? '#fff3cd' :\n                p.typ === 'nieobecnosc' ? '#f8d7da' : '#d1ecf1';\n  const ikona = p.typ === 'spoznienie' ? '⚠️' :\n                p.typ === 'nieobecnosc' ? '❌' : '📋';\n  return `<div style='background:${kolor};border-radius:6px;padding:12px;margin:8px 0;'>\n    <strong>${ikona} ${p.imie}</strong> - ${p.wiadomosc}\n    ${p.alertZarzad ? '<span style=\"color:red;font-weight:bold;\"> 🚨 ALERT ZARZĄD</span>' : ''}\n    <br><a href='${p.taskUrl}' style='font-size:12px;color:#666;'>Zobacz task →</a>\n  </div>`;\n}).join('');\n\nconst emailHTML = `<!DOCTYPE html><html><body style='font-family:Arial;max-width:600px;margin:0 auto;'>\n<div style='background:#e74c3c;color:white;padding:20px;border-radius:10px 10px 0 0;'>\n  <h2 style='margin:0;'>🔔 Alert - Zespół: ${data.name}</h2>\n  <p style='opacity:0.9;margin:5px 0 0;'>${new Date().toLocaleString('pl-PL')}</p>\n</div>\n<div style='background:white;padding:20px;border:1px solid #eee;'>\n  <h3>📊 Statystyki Zespołu</h3>\n  <table style='width:100%;border-collapse:collapse;'>\n    <tr><td style='padding:6px;border-bottom:1px solid #eee;'>Łącznie:</td><td style='padding:6px;border-bottom:1px solid #eee;font-weight:bold;'>${data.statystyki.lacznie}</td></tr>\n    <tr><td style='padding:6px;border-bottom:1px solid #eee;'>Obecni:</td><td style='padding:6px;border-bottom:1px solid #eee;color:green;font-weight:bold;'>${data.statystyki.obecni}</td></tr>\n    <tr><td style='padding:6px;border-bottom:1px solid #eee;'>Spóźnieni:</td><td style='padding:6px;border-bottom:1px solid #eee;color:orange;font-weight:bold;'>${data.statystyki.spoznieni}</td></tr>\n    <tr><td style='padding:6px;'>Nieobecni:</td><td style='padding:6px;color:red;font-weight:bold;'>${data.statystyki.nieobecni}</td></tr>\n  </table>\n  <h3>⚠️ Problemy (${problemy.length})</h3>\n  ${listaProbl}\n</div>\n<div style='background:#f8f9fa;padding:12px;text-align:center;border-radius:0 0 10px 10px;border:1px solid #eee;'>\n  <p style='color:#888;font-size:11px;margin:0;'>Automatyczny alert | ${new Date().toLocaleString('pl-PL')}</p>\n</div></body></html>`;\n\nreturn [{\n  json: {\n    ...data,\n    emailHTML,\n    emailSubject: `🔔 [${data.name}] ${problemy.length} problemów | ${new Date().toLocaleTimeString('pl-PL')}`\n  }\n}];\n"
+      },
+      "id": "f1dd7d51-cf76-47e5-ab04-dae9a37ae54b",
+      "name": "BUDUJ - Email dla Managera",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        992
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.systemEmail }}",
+        "toEmail": "={{ $json.managerEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "f9faaa26-eadc-4c11-a972-c5746a39b51a",
+      "name": "EMAIL - Alert do Managera Zespołu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        288,
+        992
+      ],
+      "webhookId": "7477e6ec-10fd-49e8-9792-cb232ce75ce8"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "if-zarzad",
+              "leftValue": "={{ $json.alertZarzadWymagany }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1d50a8d5-9112-406a-ab0d-219db17b08a6",
+      "name": "IF - Alert do Zarządu?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        64,
+        1216
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst krytyczne = data.problemy.filter(p => p.alertZarzad);\n\nconst listaKryt = krytyczne.map(p =>\n  `<tr><td style='padding:8px;border-bottom:1px solid #eee;'>${p.imie}</td>\n   <td style='padding:8px;border-bottom:1px solid #eee;'>${data.name}</td>\n   <td style='padding:8px;border-bottom:1px solid #eee;color:red;font-weight:bold;'>${p.wiadomosc}</td>\n   <td style='padding:8px;border-bottom:1px solid #eee;'><a href='${p.taskUrl}'>Zobacz</a></td></tr>`\n).join('');\n\nconst emailHTML = `<!DOCTYPE html><html><body style='font-family:Arial;max-width:650px;margin:0 auto;'>\n<div style='background:#c0392b;color:white;padding:25px;border-radius:10px 10px 0 0;'>\n  <h1 style='margin:0;font-size:22px;'>🚨 PILNY ALERT - ZARZĄD</h1>\n  <p style='opacity:0.9;'>Wymagana natychmiastowa reakcja</p>\n</div>\n<div style='background:white;padding:25px;border:1px solid #eee;'>\n  <p>Pojawiły się <strong>krytyczne problemy</strong> wymagające uwagi zarządu:</p>\n  <table style='width:100%;border-collapse:collapse;'>\n    <thead><tr style='background:#c0392b;color:white;'>\n      <th style='padding:10px;text-align:left;'>Pracownik</th>\n      <th style='padding:10px;text-align:left;'>Zespół</th>\n      <th style='padding:10px;text-align:left;'>Problem</th>\n      <th style='padding:10px;text-align:left;'>Link</th>\n    </tr></thead>\n    <tbody>${listaKryt}</tbody>\n  </table>\n</div>\n<div style='background:#f8f9fa;padding:12px;text-align:center;border-radius:0 0 10px 10px;border:1px solid #eee;'>\n  <p style='color:#888;font-size:11px;margin:0;'>System Agencja Marketingowa | ${new Date().toLocaleString('pl-PL')}</p>\n</div></body></html>`;\n\nreturn [{\n  json: {\n    ...data,\n    emailZarzadHTML: emailHTML,\n    emailZarzadSubject: `🚨 PILNY ALERT ZARZĄD - ${data.name} - ${krytyczne.length} krytycznych problemów`\n  }\n}];\n"
+      },
+      "id": "f1536bfa-891a-4f67-a274-e59ba72d456d",
+      "name": "BUDUJ - Email Pilny dla Zarządu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        1216
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.systemEmail }}",
+        "toEmail": "={{ $json.zarzadEmail }}",
+        "subject": "={{ $json.emailZarzadSubject }}",
+        "options": {}
+      },
+      "id": "31295e7a-6204-40f1-a219-7e704204dd37",
+      "name": "EMAIL - Alert Pilny do Zarządu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        496,
+        1216
+      ],
+      "webhookId": "446eff0f-7b69-4d31-88fa-ae02c331bbb5"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 18 * * *"
+            }
+          ]
+        }
+      },
+      "id": "6be0ebaa-db10-411a-b7b6-f5ec9780e9fa",
+      "name": "SCHEDULER - Codziennie 18:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1024,
+        1648
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const TEAMS = [\n  { name: 'Hostessy', listId: 'LIST_ID_HOSTESSY', managerEmail: 'manager.hostessy@agencja.pl', typProduktu: 'Coca-Cola', jednostka: 'puszki' },\n  { name: 'Rejestracja', listId: 'LIST_ID_REJESTRACJA', managerEmail: 'manager.rejestracja@agencja.pl', typProduktu: 'Identyfikatory', jednostka: 'szt' },\n  { name: 'Logistyka', listId: 'LIST_ID_LOGISTYKA', managerEmail: 'manager.logistyka@agencja.pl', typProduktu: 'Paczki', jednostka: 'szt' },\n  { name: 'Ochrona', listId: 'LIST_ID_OCHRONA', managerEmail: 'manager.ochrona@agencja.pl', typProduktu: 'Przepustki', jednostka: 'szt' },\n  { name: 'Catering', listId: 'LIST_ID_CATERING', managerEmail: 'manager.catering@agencja.pl', typProduktu: 'Posilki', jednostka: 'porcje' },\n  { name: 'VIP', listId: 'LIST_ID_VIP', managerEmail: 'manager.vip@agencja.pl', typProduktu: 'VIP Pakiety', jednostka: 'szt' }\n];\n\nconst now = new Date();\nconst dateStr = now.toLocaleDateString('pl-PL');\n\nreturn TEAMS.map(team => ({ json: { ...team, dateStr, timestamp: now.toISOString(), systemEmail: 'system@agencja.pl', zarzadEmail: 'zarzad@agencja.pl' } }));\n"
+      },
+      "id": "9eefd67f-2035-4513-b9f8-3580b9c21390",
+      "name": "SETUP - Lista Wszystkich Zespołów",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        1648
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "true"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Zakończona"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Zameldowana"
+            },
+            {
+              "name": "statuses[]",
+              "value": "W trakcie pracy"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Wymaga uwagi"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Oczekuje na start"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "82e9a11b-d2dc-4201-adcd-aa7c35c3a308",
+      "name": "CLICKUP - Pobierz Wszystkie Taski",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -576,
+        1648
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const teamCfg = $('SETUP - Lista Wszystkich Zespołów').item.json;\nconst tasks = $input.first().json.tasks || [];\n\nconst pracownicy = tasks.map(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => { cf[f.name] = f.value; });\n\n  const stanPocz = parseInt(cf['Stan Poczatkowy'] || '0');\n  const stanPol = parseInt(cf['Stan Polowkowy'] || '0');\n  const stanKon = parseInt(cf['Stan Koncowy'] || '0');\n  const rozdano = stanKon > 0 ? stanPocz - stanKon : (stanPol > 0 ? stanPocz - stanPol : 0);\n\n  return {\n    id: task.id,\n    url: task.url,\n    imie: task.name.split(' | ')[0],\n    status: task.status ? task.status.status : 'nieznany',\n    godzinaPrzyjscia: cf['Godzina Przyjscia'] || '—',\n    godzinaWyjscia: cf['Godzina Wyjscia'] || '—',\n    czyZarej: cf['Czy Zarejestrowana'] === 'true',\n    stanPocz,\n    stanPol,\n    stanKon,\n    rozdano,\n    etap: cf['Aktualny Etap'] || '—',\n    raportPol: cf['Raport Polowkowy'] || '',\n    raportKon: cf['Raport Koncowy'] || '',\n    uwagi: cf['Uwagi Managera'] || '',\n    email: cf['Email Pracownika'] || ''\n  };\n});\n\nconst stats = {\n  lacznie: pracownicy.length,\n  obecni: pracownicy.filter(p => p.godzinaPrzyjscia !== '—').length,\n  nieobecni: pracownicy.filter(p => p.godzinaPrzyjscia === '—').length,\n  zakonczone: pracownicy.filter(p => p.status === 'Zakończona').length,\n  zRaportPol: pracownicy.filter(p => p.raportPol).length,\n  zRaportKon: pracownicy.filter(p => p.raportKon).length,\n  lacznie_rozdano: pracownicy.reduce((s, p) => s + p.rozdano, 0),\n  srednia_rozdano: pracownicy.length > 0\n    ? Math.round(pracownicy.reduce((s, p) => s + p.rozdano, 0) / pracownicy.filter(p => p.godzinaPrzyjscia !== '—').length || 0)\n    : 0\n};\n\nconst problemy = {\n  bezRaportKon: pracownicy.filter(p => !p.raportKon && p.godzinaPrzyjscia !== '—'),\n  nieobecni: pracownicy.filter(p => p.godzinaPrzyjscia === '—'),\n  niezakonczone: pracownicy.filter(p => p.status !== 'Zakończona' && p.godzinaPrzyjscia !== '—')\n};\n\nreturn [{\n  json: {\n    ...teamCfg,\n    pracownicy,\n    stats,\n    problemy,\n    maProblemy: problemy.bezRaportKon.length > 0 || problemy.nieobecni.length > 0\n  }\n}];\n"
+      },
+      "id": "198afce9-923a-4559-98e2-ac23134d77be",
+      "name": "ANALIZA - Statystyki Końcowe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -368,
+        1648
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst { pracownicy, stats, problemy } = data;\n\n// Tabela pracowników\nconst wiersze = pracownicy.map((p, i) => {\n  const bg = i % 2 === 0 ? '#f8f9fa' : 'white';\n  const statusKolor = p.status === 'Zakończona' ? 'green' : p.status === 'Wymaga uwagi' ? 'red' : 'orange';\n  return `<tr style='background:${bg};'>\n    <td style='padding:8px;border:1px solid #dee2e6;'>${p.imie}</td>\n    <td style='padding:8px;border:1px solid #dee2e6;text-align:center;'>${p.godzinaPrzyjscia}</td>\n    <td style='padding:8px;border:1px solid #dee2e6;text-align:center;'>${p.godzinaWyjscia}</td>\n    <td style='padding:8px;border:1px solid #dee2e6;text-align:center;'>${p.czyZarej ? '✅' : '❌'}</td>\n    <td style='padding:8px;border:1px solid #dee2e6;text-align:center;'>${p.stanPocz}</td>\n    <td style='padding:8px;border:1px solid #dee2e6;text-align:center;'>${p.stanPol || '—'}</td>\n    <td style='padding:8px;border:1px solid #dee2e6;text-align:center;font-weight:bold;'>${p.rozdano}</td>\n    <td style='padding:8px;border:1px solid #dee2e6;text-align:center;'>${p.stanKon || '—'}</td>\n    <td style='padding:8px;border:1px solid #dee2e6;text-align:center;'>${p.raportPol ? '✅' : '❌'}</td>\n    <td style='padding:8px;border:1px solid #dee2e6;text-align:center;'>${p.raportKon ? '✅' : '❌'}</td>\n    <td style='padding:8px;border:1px solid #dee2e6;text-align:center;color:${statusKolor};font-weight:bold;'>${p.status}</td>\n  </tr>`;\n}).join('');\n\n// Sekcja problemów\nlet sekcjaProbl = '';\nif (data.maProblemy) {\n  sekcjaProbl = `<div style='background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:15px;margin:15px 0;'>\n    <h3 style='color:#856404;margin-top:0;'>⚠️ Problemy do Wyjaśnienia</h3>\n    ${problemy.bezRaportKon.length > 0 ? `<p><strong>Brak raportu końcowego:</strong> ${problemy.bezRaportKon.map(p => p.imie).join(', ')}</p>` : ''}\n    ${problemy.nieobecni.length > 0 ? `<p><strong>Nieobecni bez zgłoszenia:</strong> ${problemy.nieobecni.map(p => p.imie).join(', ')}</p>` : ''}\n    ${problemy.niezakonczone.length > 0 ? `<p><strong>Nie zamknęli dyżuru:</strong> ${problemy.niezakonczone.map(p => p.imie).join(', ')}</p>` : ''}\n  </div>`;\n}\n\n// Raporty indywidualne\nconst raportyHTML = pracownicy\n  .filter(p => p.raportKon || p.raportPol)\n  .map(p => `<div style='background:#f8f9fa;border-radius:6px;padding:12px;margin:8px 0;border-left:3px solid #667eea;'>\n    <strong>${p.imie}</strong>\n    ${p.raportPol ? `<p style='margin:6px 0;'><em>Raport 13:00:</em> ${p.raportPol}</p>` : ''}\n    ${p.raportKon ? `<p style='margin:6px 0;'><em>Raport końcowy:</em> ${p.raportKon}</p>` : ''}\n    ${p.uwagi ? `<p style='margin:6px 0;color:#888;font-size:12px;'><em>Uwagi managera:</em> ${p.uwagi}</p>` : ''}\n  </div>`).join('');\n\nconst emailHTML = `<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;max-width:900px;margin:0 auto;'>\n\n<div style='background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:30px;border-radius:12px 12px 0 0;'>\n  <h1 style='margin:0;font-size:26px;'>📊 Raport Końcowy Dnia</h1>\n  <p style='opacity:0.9;margin:8px 0 0;font-size:16px;'>Zespół: <strong>${data.name}</strong> | Data: <strong>${data.dateStr}</strong></p>\n</div>\n\n<div style='background:white;padding:25px;border:1px solid #eee;'>\n  <h2 style='color:#444;border-bottom:2px solid #667eea;padding-bottom:10px;'>📈 Podsumowanie Dnia</h2>\n  <div style='display:flex;gap:12px;flex-wrap:wrap;margin:15px 0;'>\n    <div style='background:#e8f5e9;border-radius:8px;padding:15px;text-align:center;min-width:100px;flex:1;'><div style='font-size:28px;font-weight:bold;color:#2e7d32;'>${stats.obecni}</div><div style='color:#555;font-size:13px;'>Obecnych</div></div>\n    <div style='background:#fce4ec;border-radius:8px;padding:15px;text-align:center;min-width:100px;flex:1;'><div style='font-size:28px;font-weight:bold;color:#c62828;'>${stats.nieobecni}</div><div style='color:#555;font-size:13px;'>Nieobecnych</div></div>\n    <div style='background:#e3f2fd;border-radius:8px;padding:15px;text-align:center;min-width:100px;flex:1;'><div style='font-size:28px;font-weight:bold;color:#1565c0;'>${stats.lacznie_rozdano}</div><div style='color:#555;font-size:13px;'>${data.typProduktu} rozdanych</div></div>\n    <div style='background:#f3e5f5;border-radius:8px;padding:15px;text-align:center;min-width:100px;flex:1;'><div style='font-size:28px;font-weight:bold;color:#6a1b9a;'>${stats.srednia_rozdano}</div><div style='color:#555;font-size:13px;'>Średnia/osoba</div></div>\n    <div style='background:#fff8e1;border-radius:8px;padding:15px;text-align:center;min-width:100px;flex:1;'><div style='font-size:28px;font-weight:bold;color:#e65100;'>${stats.zRaportKon}/${stats.lacznie}</div><div style='color:#555;font-size:13px;'>Raporty końcowe</div></div>\n    <div style='background:#e0f2f1;border-radius:8px;padding:15px;text-align:center;min-width:100px;flex:1;'><div style='font-size:28px;font-weight:bold;color:#00695c;'>${stats.zakonczone}</div><div style='color:#555;font-size:13px;'>Zakończonych</div></div>\n  </div>\n</div>\n\n${sekcjaProbl}\n\n<div style='background:white;padding:25px;border:1px solid #eee;overflow-x:auto;'>\n  <h2 style='color:#444;border-bottom:2px solid #667eea;padding-bottom:10px;'>👥 Szczegóły - Każda Osoba</h2>\n  <table style='width:100%;border-collapse:collapse;font-size:12px;min-width:800px;'>\n    <thead><tr style='background:linear-gradient(135deg,#667eea,#764ba2);color:white;'>\n      <th style='padding:10px;text-align:left;'>Imię i Nazwisko</th>\n      <th style='padding:10px;'>Przybycie</th>\n      <th style='padding:10px;'>Wyjście</th>\n      <th style='padding:10px;'>Rejestr.</th>\n      <th style='padding:10px;'>Stan pocz.</th>\n      <th style='padding:10px;'>Stan 13:00</th>\n      <th style='padding:10px;'>Rozdano</th>\n      <th style='padding:10px;'>Stan końc.</th>\n      <th style='padding:10px;'>Rap.13:00</th>\n      <th style='padding:10px;'>Rap.końc.</th>\n      <th style='padding:10px;'>Status</th>\n    </tr></thead>\n    <tbody>${wiersze}</tbody>\n  </table>\n</div>\n\n${raportyHTML ? `<div style='background:white;padding:25px;border:1px solid #eee;'><h2 style='color:#444;border-bottom:2px solid #667eea;padding-bottom:10px;'>📝 Raporty Indywidualne</h2>${raportyHTML}</div>` : ''}\n\n<div style='background:#f8f9fa;padding:15px;border-radius:0 0 12px 12px;border:1px solid #eee;text-align:center;'>\n  <p style='color:#888;font-size:11px;margin:0;'>Raport wygenerowany automatycznie przez system | ${new Date().toLocaleString('pl-PL')}</p>\n</div>\n</body></html>`;\n\nreturn [{\n  json: {\n    ...data,\n    emailHTML,\n    emailSubject: `📊 Raport Końcowy - ${data.name} - ${data.dateStr} | ${data.maProblemy ? '⚠️ PROBLEMY' : '✅ OK'}`\n  }\n}];\n"
+      },
+      "id": "559e6645-3125-4168-aace-482d0506eb3a",
+      "name": "BUDUJ - HTML Raport Końcowy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        1648
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.systemEmail }}",
+        "toEmail": "={{ $json.managerEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "d0cc1d40-bf00-4d07-86b5-e107dd4c683e",
+      "name": "EMAIL - Raport do Managera Zespołu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        80,
+        1536
+      ],
+      "webhookId": "3cc7472d-aa15-49d7-a274-cbc0375291e4"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.clickup.com/api/v2/list/LIST_ID_RAPORTY_ZBIORCZE/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "c240a97b-859f-431a-b77e-de700ed03e5a",
+      "name": "CLICKUP - Zapisz Raport w Panelu Zarządu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        80,
+        1760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ten node zbiera dane ze wszystkich 6 iteracji\n// i tworzy zbiorczy raport dla zarządu\nconst allItems = $input.all();\n\nconst totalStats = {\n  pracownikow: 0, obecnych: 0, nieobecnych: 0,\n  rozdano: 0, raportow: 0, problemow: 0\n};\n\nconst teamRows = allItems.map(item => {\n  const d = item.json;\n  totalStats.pracownikow += d.stats.lacznie;\n  totalStats.obecnych += d.stats.obecni;\n  totalStats.nieobecnych += d.stats.nieobecni;\n  totalStats.rozdano += d.stats.lacznie_rozdano;\n  totalStats.raportow += d.stats.zRaportKon;\n  if (d.maProblemy) totalStats.problemow++;\n\n  return `<tr style='background:${allItems.indexOf(item) % 2 === 0 ? '#f8f9fa' : 'white'}'>\n    <td style='padding:10px;border:1px solid #dee2e6;font-weight:bold;'>${d.name}</td>\n    <td style='padding:10px;border:1px solid #dee2e6;text-align:center;'>${d.stats.obecni}/${d.stats.lacznie}</td>\n    <td style='padding:10px;border:1px solid #dee2e6;text-align:center;'>${d.stats.nieobecni}</td>\n    <td style='padding:10px;border:1px solid #dee2e6;text-align:center;font-weight:bold;'>${d.stats.lacznie_rozdano} ${d.jednostka}</td>\n    <td style='padding:10px;border:1px solid #dee2e6;text-align:center;'>${d.stats.zRaportKon}/${d.stats.lacznie}</td>\n    <td style='padding:10px;border:1px solid #dee2e6;text-align:center;font-size:18px;'>${d.maProblemy ? '⚠️' : '✅'}</td>\n  </tr>`;\n}).join('');\n\nconst dateStr = new Date().toLocaleDateString('pl-PL');\n\nconst zbiorczyHTML = `<!DOCTYPE html><html><body style='font-family:Arial;max-width:750px;margin:0 auto;'>\n<div style='background:#1a1a2e;color:white;padding:30px;border-radius:12px 12px 0 0;'>\n  <h1 style='margin:0;font-size:24px;'>🏆 Zbiorczy Raport Zarządu</h1>\n  <p style='opacity:0.8;margin:5px 0 0;'>Wszystkie Zespoły | ${dateStr}</p>\n</div>\n<div style='background:white;padding:25px;border:1px solid #eee;'>\n  <h2>📊 Łączne Wyniki Wszystkich Zespołów</h2>\n  <div style='display:flex;gap:10px;flex-wrap:wrap;margin:15px 0;'>\n    <div style='background:#e3f2fd;border-radius:8px;padding:15px;text-align:center;flex:1;min-width:80px;'><div style='font-size:26px;font-weight:bold;color:#1565c0;'>${totalStats.pracownikow}</div><div style='font-size:12px;color:#555;'>Łącznie pracowników</div></div>\n    <div style='background:#e8f5e9;border-radius:8px;padding:15px;text-align:center;flex:1;min-width:80px;'><div style='font-size:26px;font-weight:bold;color:#2e7d32;'>${totalStats.obecnych}</div><div style='font-size:12px;color:#555;'>Obecnych</div></div>\n    <div style='background:#fce4ec;border-radius:8px;padding:15px;text-align:center;flex:1;min-width:80px;'><div style='font-size:26px;font-weight:bold;color:#c62828;'>${totalStats.nieobecnych}</div><div style='font-size:12px;color:#555;'>Nieobecnych</div></div>\n    <div style='background:#f3e5f5;border-radius:8px;padding:15px;text-align:center;flex:1;min-width:80px;'><div style='font-size:26px;font-weight:bold;color:#6a1b9a;'>${totalStats.rozdano}</div><div style='font-size:12px;color:#555;'>Rozdano łącznie</div></div>\n    <div style='background:${totalStats.problemow > 0 ? '#fff3cd' : '#e8f5e9'};border-radius:8px;padding:15px;text-align:center;flex:1;min-width:80px;'><div style='font-size:26px;font-weight:bold;color:${totalStats.problemow > 0 ? '#856404' : '#2e7d32'};'>${totalStats.problemow}</div><div style='font-size:12px;color:#555;'>Zespoły z problemami</div></div>\n  </div>\n  <h2>🏢 Status Każdego Zespołu</h2>\n  <table style='width:100%;border-collapse:collapse;'>\n    <thead><tr style='background:#1a1a2e;color:white;'>\n      <th style='padding:10px;text-align:left;'>Zespół</th>\n      <th style='padding:10px;'>Obecni</th>\n      <th style='padding:10px;'>Nieobecni</th>\n      <th style='padding:10px;'>Rozdano</th>\n      <th style='padding:10px;'>Raporty</th>\n      <th style='padding:10px;'>Status</th>\n    </tr></thead>\n    <tbody>${teamRows}</tbody>\n  </table>\n</div>\n<div style='background:#f8f9fa;padding:12px;text-align:center;border-radius:0 0 12px 12px;border:1px solid #eee;'>\n  <p style='color:#888;font-size:11px;margin:0;'>Automatyczny raport zbiorczy | ${new Date().toLocaleString('pl-PL')}</p>\n</div></body></html>`;\n\nreturn [{\n  json: {\n    zbiorczyHTML,\n    totalStats,\n    dateStr,\n    emailSubject: `🏆 Zbiorczy Raport Zarządu - ${dateStr} | ${totalStats.problemow > 0 ? '⚠️ ' + totalStats.problemow + ' zespoły z problemami' : '✅ Wszystko OK'}`,\n    zarzadEmail: 'zarzad@agencja.pl',\n    systemEmail: 'system@agencja.pl'\n  }\n}];\n"
+      },
+      "id": "619fdab4-89bc-4291-bc2a-1c57004e755e",
+      "name": "BUDUJ - Zbiorczy Raport Zarządu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        1648
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.systemEmail }}",
+        "toEmail": "={{ $json.zarzadEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "13f3370b-bbda-4d43-b0d4-837408fed08b",
+      "name": "EMAIL - Zbiorczy Raport do Zarządu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        528,
+        1648
+      ],
+      "webhookId": "a6df896d-738d-45d9-9f03-ddd15aa46dcc"
+    }
+  ],
+  "connections": {
+    "WEBHOOK - Rejestracja Pracownika": {
+      "main": [
+        [
+          {
+            "node": "WALIDACJA - Dane i Konfiguracja",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WALIDACJA - Dane i Konfiguracja": {
+      "main": [
+        [
+          {
+            "node": "IF - Dane Poprawne?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Dane Poprawne?": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Utwórz Task Główny",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RESPONSE - Błąd Walidacji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Utwórz Task Główny": {
+      "main": [
+        [
+          {
+            "node": "ZAPISZ - Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ZAPISZ - Task ID": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Subtask Etap 1 Zameldowanie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Subtask Etap 1 Zameldowanie": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Subtask Etap 2 Rejestracja",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Subtask Etap 2 Rejestracja": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Subtask Etap 3 Towar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Subtask Etap 3 Towar": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Subtask Etap 4 Praca",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Subtask Etap 4 Praca": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Subtask Etap 5 Raport 13:00",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Subtask Etap 5 Raport 13:00": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Subtask Etap 6 Raport Końcowy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Subtask Etap 6 Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "IF - Czy Spóźniona?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Czy Spóźniona?": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Komentarz Spóźnienie",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EMAIL - Alert Spóźnienie do Managera",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EMAIL - Powitalny do Pracownika",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Komentarz Spóźnienie": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Powitalny do Pracownika",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EMAIL - Alert Spóźnienie do Managera": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Powitalny do Pracownika",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EMAIL - Powitalny do Pracownika": {
+      "main": [
+        [
+          {
+            "node": "RESPONSE - Sukces",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - Co 15 min (6:00-22:00)": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Konfiguracja Zespołów",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Konfiguracja Zespołów": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Aktywne Taski",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Aktywne Taski": {
+      "main": [
+        [
+          {
+            "node": "ANALIZA - Spóźnienia i Problemy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ANALIZA - Spóźnienia i Problemy": {
+      "main": [
+        [
+          {
+            "node": "IF - Są Problemy?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Są Problemy?": {
+      "main": [
+        [
+          {
+            "node": "BUDUJ - Email dla Managera",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF - Alert do Zarządu?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - Email dla Managera": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Alert do Managera Zespołu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Alert do Zarządu?": {
+      "main": [
+        [
+          {
+            "node": "BUDUJ - Email Pilny dla Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - Email Pilny dla Zarządu": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Alert Pilny do Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - Codziennie 18:00": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Lista Wszystkich Zespołów",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Lista Wszystkich Zespołów": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Wszystkie Taski",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Wszystkie Taski": {
+      "main": [
+        [
+          {
+            "node": "ANALIZA - Statystyki Końcowe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ANALIZA - Statystyki Końcowe": {
+      "main": [
+        [
+          {
+            "node": "BUDUJ - HTML Raport Końcowy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - HTML Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Raport do Managera Zespołu",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CLICKUP - Zapisz Raport w Panelu Zarządu",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "BUDUJ - Zbiorczy Raport Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - Zbiorczy Raport Zarządu": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Zbiorczy Raport do Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "ed311837-3262-4b8f-943c-1b13e48d1e6d",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:09:16.952Z",
+      "createdAt": "2026-04-04T10:09:16.952Z",
+      "role": "workflow:owner",
+      "workflowId": "g4MorgvewgnfKxYy",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
