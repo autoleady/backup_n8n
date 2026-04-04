@@ -1,0 +1,710 @@
+{
+  "updatedAt": "2026-04-04T10:08:17.744Z",
+  "createdAt": "2026-04-04T10:08:16.740Z",
+  "id": "yTFNdg8hURwyMJws",
+  "name": "Onboarding - Nowy Klient(Demo)",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "value": "1elzHeiEy38-AQGKXxefs9PR1y6rifKxcj7HGK5bv_pk",
+          "mode": "list",
+          "cachedResultName": "klienci",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1elzHeiEy38-AQGKXxefs9PR1y6rifKxcj7HGK5bv_pk/edit?usp=drivesdk"
+        },
+        "options": {}
+      },
+      "id": "6312dd46-9d1a-4f21-9801-e948da390709",
+      "name": "Folder klienta w Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        688,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "createFolder"
+      },
+      "id": "34ccaea0-7630-4f0d-b064-10140dda7454",
+      "name": "Folder Onboarding",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1024,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "createFolder"
+      },
+      "id": "3f578aad-855b-4828-9edc-10d90dd1f64a",
+      "name": "Folder Strategia",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1024,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "createFolder"
+      },
+      "id": "ce10c69d-2366-4644-8857-bc0c62816619",
+      "name": "Folder Kreacje",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1024,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "createFolder"
+      },
+      "id": "41abeb17-b088-4c67-a627-b9fc8e36f30c",
+      "name": "Folder Raporty",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1024,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "team": "90152423592",
+        "name": "={{ 'Wyślij kwestionariusz → ' + $('Dane klienta').item.json.Nazwa_firmy }}",
+        "additionalFields": {
+          "dueDate": "={{ $now.plus(1, 'days').toMillis() }}",
+          "priority": 2
+        }
+      },
+      "id": "1b8423c4-f239-4654-9b6e-754655cd82f1",
+      "name": "ClickUp - Kwestionariusz",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "name": "={{ 'Umów kick-off → ' + $('Dane klienta').item.json.Nazwa_firmy }}",
+        "additionalFields": {
+          "dueDate": "={{ $now.plus(5, 'days').toMillis() }}",
+          "priority": 2
+        }
+      },
+      "id": "7e5dcc5a-6cfe-44a3-811a-c45fc5a9dbe1",
+      "name": "ClickUp - Kickoff",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "name": "={{ 'Odbierz dostępy → ' + $('Dane klienta').item.json.Nazwa_firmy }}",
+        "additionalFields": {
+          "dueDate": "={{ $now.plus(7, 'days').toMillis() }}",
+          "priority": 1
+        }
+      },
+      "id": "7be89063-d571-493a-9b2b-325665d15569",
+      "name": "ClickUp - Dostepy",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "name": "={{ 'Przygotuj audyt i strategię → ' + $('Dane klienta').item.json.Nazwa_firmy }}",
+        "additionalFields": {
+          "dueDate": "={{ $now.plus(14, 'days').toMillis() }}",
+          "priority": 2
+        }
+      },
+      "id": "d0ee3404-91f9-40b1-b04a-dd15ede429c1",
+      "name": "ClickUp - Audyt",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Dane klienta').item.json.Email }}",
+        "subject": "={{ 'Witamy na pokładzie — ' + $('Dane klienta').item.json.Nazwa_firmy + '!' }}",
+        "emailType": "text",
+        "message": "={{ 'Cześć ' + $('Dane klienta').item.json.Imie + ',\\n\\nCieszymy się że zaczynamy współpracę!\\n\\nTwój opiekun to ' + $('Dane klienta').item.json.Opiekun + ' — to Twój główny kontakt w naszej agencji.\\n\\nCo dzieje się teraz:\\n✅ Krok 1 — Wyślemy Ci kwestionariusz (dziś/jutro)\\n✅ Krok 2 — Umówimy kick-off meeting (dzień 3-5)\\n✅ Krok 3 — Przygotujemy strategię (tydzień 1-2)\\n✅ Krok 4 — Startujemy z realizacją\\n\\nMasz pytania? Odpisz na tego maila.\\n\\nPozdrawiamy,\\nTwoja agencja' }}",
+        "options": {}
+      },
+      "id": "3a1b08d3-e5ed-425f-85bb-d2839b73f3ee",
+      "name": "Email do klienta",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        544
+      ],
+      "webhookId": "1f3e8dcd-4e91-4717-9256-e626dbacbb79"
+    },
+    {
+      "parameters": {
+        "sendTo": "WKLEJ_EMAIL_ACCOUNT_MANAGERA",
+        "subject": "={{ '🆕 Nowy klient — ' + $('Dane klienta').item.json.Nazwa_firmy }}",
+        "emailType": "text",
+        "message": "={{ 'Hej ' + $('Dane klienta').item.json.Opiekun + ',\\n\\nMasz nowego klienta!\\n\\nFirma: ' + $('Dane klienta').item.json.Nazwa_firmy + '\\nKontakt: ' + $('Dane klienta').item.json.Imie + ' ' + $('Dane klienta').item.json.Nazwisko + '\\nEmail: ' + $('Dane klienta').item.json.Email + '\\nTelefon: ' + $('Dane klienta').item.json.Telefon + '\\nUsługa: ' + $('Dane klienta').item.json.Usluga + '\\nBudżet: ' + $('Dane klienta').item.json.Budzet + ' PLN\\n\\nZadania zostały już dodane do ClickUp.\\nPamiętaj o kwestionariuszu — deadline jutro!' }}",
+        "options": {}
+      },
+      "id": "d2ebff14-ca3b-43fe-891a-7bc21a37294a",
+      "name": "Email do AM",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        720
+      ],
+      "webhookId": "8b82a70a-850a-4d0c-b25e-3cec80248d02"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "get",
+        "id": "={{ $json.task_id }}",
+        "includeSubtasks": true
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        -1216,
+        384
+      ],
+      "id": "1bc7d8d1-c92c-4a4f-8a45-0480f91e016e",
+      "name": "Get a task"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===============================\n// POBRANIE DANYCH Z CLICKUP\n// ===============================\n\nconst data = $json;\nconst fields = data.custom_fields || [];\n\n// Sprawdzenie czy pola przyszły\nif (fields.length === 0) {\n  return [{\n    json: {\n      blad: true,\n      komunikat: \"Brak custom_fields\",\n      task_id: data.id || null\n    }\n  }];\n}\n\n\n// ===============================\n// FUNKCJA — POBIERZ PO NAZWIE\n// ===============================\n\nconst getFieldByName = (name) => {\n  const field = fields.find(f => \n    f.name && f.name.toLowerCase().includes(name.toLowerCase())\n  );\n  \n  if (!field) return '';\n  \n  const value = field.value;\n  \n  if (value === null || value === undefined) return '';\n  \n  // Jeśli to dropdown (array opcji)\n  if (Array.isArray(value)) {\n    if (value.length === 0) return '';\n    return value[0]?.name || value[0]?.label || '';\n  }\n  \n  // Jeśli to obiekt z name\n  if (typeof value === 'object' && value?.name) {\n    return value.name;\n  }\n  \n  // Jeśli to string lub liczba\n  return String(value);\n};\n\n\n// ===============================\n// FUNKCJA — POBIERZ PO INDEKSIE\n// ===============================\n\nconst getFieldByIndex = (fieldIndex) => {\n  const field = fields[fieldIndex];\n  \n  if (!field) return '';\n  \n  const value = field.value;\n  \n  if (!value) return '';\n  \n  // Jeśli to dropdown (array opcji)\n  if (Array.isArray(value)) {\n    if (value.length === 0) return '';\n    return value[0]?.name || value[0]?.label || '';\n  }\n  \n  // Jeśli to obiekt z name\n  if (typeof value === 'object' && value?.name) {\n    return value.name;\n  }\n  \n  // Jeśli to string lub liczba\n  if (value !== null && value !== undefined) {\n    return String(value);\n  }\n  \n  return '';\n};\n\n\n// ===============================\n// FUNKCJA — CHECKBOX TAK/NIE\n// ===============================\n\nconst getCheckboxValue = (fieldIndex) => {\n  const field = fields[fieldIndex];\n  \n  if (!field) return 'Nie';\n  \n  const value = field.value;\n  \n  // Checkbox w ClickUp zwraca true/false\n  if (value === true) return 'Tak';\n  if (value === false) return 'Nie';\n  \n  // Czasem przychodzi jako string\n  if (value === 'true' || value === '1') return 'Tak';\n  if (value === 'false' || value === '0') return 'Nie';\n  \n  return 'Nie';\n};\n\n\n// ===============================\n// FUNKCJA — TELEFON SAME CYFRY\n// ===============================\n\nconst getPhoneDigits = (fieldNameVariants) => {\n  let raw = '';\n  for (const name of fieldNameVariants) {\n    raw = getFieldByName(name);\n    if (raw) break;\n  }\n  if (!raw) return '';\n  return raw.replace(/\\D/g, '');\n};\n\n\n// ===============================\n// ODCZYT PÓL\n// ===============================\n\n// Pola po nazwach (zmień nazwy na swoje warianty)\nconst nazwa_firmy   = getFieldByName('nazwa') || \n                      getFieldByName('firma') || \n                      getFieldByName('company') || \n                      getFieldByName('klient');\n\nconst email         = getFieldByName('email') || \n                      getFieldByName('mail') || \n                      getFieldByName('e-mail');\n\nconst telefon       = getPhoneDigits(['tel', 'telefon', 'phone', 'mobile']);\n\nconst opis          = getFieldByName('opis') || \n                      getFieldByName('description') || \n                      getFieldByName('info');\n\nconst branza        = getFieldByName('branża') || \n                      getFieldByName('branza') || \n                      getFieldByName('industry') || \n                      getFieldByName('sektor');\n\n// Pole [0] — pierwsze pole (zamiast [10])\nconst pole0_wartosc = getFieldByIndex(0);\nconst pole0_nazwa   = fields[0]?.name || 'Pole_0';\n\n// Pole [2] — checkbox Tak/Nie (zamiast [5])\nconst pole2_tak_nie = getCheckboxValue(2);\nconst pole2_nazwa   = fields[2]?.name || 'Pole_2';\n\n// Pole [3] — checkbox Tak/Nie (zamiast [6])\nconst pole3_tak_nie = getCheckboxValue(3);\nconst pole3_nazwa   = fields[3]?.name || 'Pole_3';\n\n\n// ===============================\n// ZWRACAMY DANE DO GOOGLE SHEETS\n// ===============================\n\nreturn [{\n  json: {\n    // Pola podstawowe\n    nazwa_firmy:    nazwa_firmy || 'Brak nazwy',\n    email:          email || '',\n    telefon:        telefon || '',\n    opis:           opis || '',\n    branza:         branza || '',\n    \n    // Pole [0] — wartość tekstowa\n    [pole0_nazwa]:  pole0_wartosc,\n    pole_0_wartosc: pole0_wartosc,  // duplikat dla pewności\n    \n    // Pole [2] — Tak/Nie\n    [pole2_nazwa]:  pole2_tak_nie,\n    pole_2_taknie:  pole2_tak_nie,  // duplikat dla pewności\n    \n    // Pole [3] — Tak/Nie\n    [pole3_nazwa]:  pole3_tak_nie,\n    pole_3_taknie:  pole3_tak_nie,  // duplikat dla pewności\n    \n    // Metadata\n    data_dodania:   new Date().toLocaleDateString('pl-PL')\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1312,
+        624
+      ],
+      "id": "e4eff695-642c-4586-a253-67f8300b1016",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1UwcgsBupQttzBmj9ajS4X5t1x5fndMqCKSwEETNpo6E",
+          "mode": "list",
+          "cachedResultName": "aa",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UwcgsBupQttzBmj9ajS4X5t1x5fndMqCKSwEETNpo6E/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Arkusz1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UwcgsBupQttzBmj9ajS4X5t1x5fndMqCKSwEETNpo6E/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Tel": "={{ $json.telefon }}",
+            "Branza": "={{ $json.branza }}",
+            "Budzet": "={{ $('Get a task1').item.json.custom_fields[9].value }}",
+            "Nazwa_firmy": "={{ $json.nazwa_firmy }}",
+            "Opis": "={{ $json.opis }}",
+            "Strona www": "={{ $('Get a task1').item.json.custom_fields[6].value }}",
+            "Email": "={{ $json.email }}",
+            "Data_startu": "={{$now.format('yyyy-MM-dd')}}",
+            "Status": "={{ $('Get a task1').item.json.status.status }}",
+            "Google ads": "={{ $json['Google Ads'] }}",
+            "Facebook ads": "={{ $json['Facebook Ads'] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Nazwa_firmy",
+              "displayName": "Nazwa_firmy",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tel",
+              "displayName": "Tel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Branza",
+              "displayName": "Branza",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Strona www",
+              "displayName": "Strona www",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Opis",
+              "displayName": "Opis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Budzet",
+              "displayName": "Budzet",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Google ads",
+              "displayName": "Google ads",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Facebook ads",
+              "displayName": "Facebook ads",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Opiekun",
+              "displayName": "Opiekun",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Data_startu",
+              "displayName": "Data_startu",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Notatki",
+              "displayName": "Notatki",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Ostatnia_aktualizacja",
+              "displayName": "Ostatnia_aktualizacja",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1136,
+        624
+      ],
+      "id": "095161bd-6ea5-45b0-83b8-df317f1a9fb4",
+      "name": "Append row in sheet"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "get",
+        "id": "={{ $('Get a task').item.json.id }}",
+        "includeSubtasks": true
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        -1488,
+        624
+      ],
+      "id": "4690df56-1182-474f-99a6-5c15ef95388b",
+      "name": "Get a task1"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Email }}",
+        "subject": "Witaj zespole - Nowy klient",
+        "message": "={{ $json.Nazwa_firmy }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -960,
+        624
+      ],
+      "id": "8e866a8b-40b5-4b81-aa6a-fdb857cf03df",
+      "name": "Send a message1",
+      "webhookId": "a3bd78be-ee42-4703-b6f4-659b02f75604"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fields = $json.custom_fields || [];\nconst getEmail = () => {\n  const field = fields.find(f => f.name && f.name.toLowerCase().includes('mail'));\n  return field?.value || '';\n};\n\nconst email = getEmail();\n\nif (!email) {\n  // Jeśli brak emaila, przerwij workflow lub ustaw domyślny\n  return [{ json: { skip: true } }];\n}\n\nconst nazwa_firmy = email.split('@')[1] || 'Nieznana firma';\n\nreturn [{\n  json: {\n    email,\n    nazwa_firmy,\n    status: 'nowy_lead'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -992,
+        384
+      ],
+      "id": "f47c5b11-4b44-4c48-9bc5-94f65cd2efe1",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "content": "Jeżeli w clickup nowe zadanie sysytem je szczytuje i zbiera dane,\npo czym jest zmiana typu danych",
+        "height": 208,
+        "width": 720,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1536,
+        320
+      ],
+      "typeVersion": 1,
+      "id": "2e1b2fc1-967d-45d0-9e5a-1eb1146246d3",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Zbiera dane po id zmienia wartości aby dalo sie zapisać w google sheets, po czym automatycznie wysyla maila",
+        "height": 208,
+        "width": 720,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1536,
+        560
+      ],
+      "typeVersion": 1,
+      "id": "672f48da-9ee6-4f14-ac28-188bb0bba203",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "team": "90152423592",
+        "events": [
+          "taskStatusUpdated"
+        ],
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUpTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1456,
+        384
+      ],
+      "id": "fb0dcc35-9f66-43b5-a6f2-1936e5da5a8c",
+      "name": "ClickUp Trigger",
+      "webhookId": "85f29ef7-c034-4db5-8e10-840a0c1bf12e"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "53fb8e7a-5525-4bca-a243-af20bb79ff6e",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "7a88c852-ad42-4d9f-962d-ac11b496b4b5",
+      "name": "HTTP Request1"
+    }
+  ],
+  "connections": {
+    "Folder klienta w Drive": {
+      "main": [
+        [
+          {
+            "node": "Folder Onboarding",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Folder Strategia",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Folder Kreacje",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Folder Raporty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Folder Onboarding": {
+      "main": [
+        [
+          {
+            "node": "ClickUp - Kwestionariusz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Folder Strategia": {
+      "main": [
+        [
+          {
+            "node": "ClickUp - Kickoff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Folder Kreacje": {
+      "main": [
+        [
+          {
+            "node": "ClickUp - Dostepy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Folder Raporty": {
+      "main": [
+        [
+          {
+            "node": "ClickUp - Audyt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ClickUp - Kwestionariusz": {
+      "main": [
+        [
+          {
+            "node": "Email do klienta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ClickUp - Kickoff": {
+      "main": [
+        [
+          {
+            "node": "Email do AM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a task": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a task1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Get a task1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ClickUp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get a task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "466b60fd-5f0c-4282-a239-693a9d6314d2",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:08:16.742Z",
+      "createdAt": "2026-04-04T10:08:16.742Z",
+      "role": "workflow:owner",
+      "workflowId": "yTFNdg8hURwyMJws",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
