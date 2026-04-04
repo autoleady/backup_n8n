@@ -1,0 +1,502 @@
+{
+  "updatedAt": "2026-04-04T10:13:42.751Z",
+  "createdAt": "2026-04-04T10:13:42.030Z",
+  "id": "P34ZB9BthEZuMkSJ",
+  "name": "My workflow 7",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Forma",
+        "formDescription": "a",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Branża/fraza"
+            },
+            {
+              "fieldLabel": "Miasto"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "fb9c4d98-275f-47f8-8107-b483a92d3baa",
+      "name": "On form submission",
+      "webhookId": "60b82d69-0c03-4060-87f2-a9d430e7d87f"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b79ef2b0-361b-479b-a257-737ef8aed71e",
+              "leftValue": "website ",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        -16,
+        336
+      ],
+      "id": "0fd266c4-2d75-47d6-9d2d-b98fdb7efebb",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        192,
+        336
+      ],
+      "id": "b80b54ee-d2f0-4eac-867b-ac83ec163a7e",
+      "name": "Remove Duplicates"
+    },
+    {
+      "parameters": {
+        "maxItems": 50
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        400,
+        336
+      ],
+      "id": "43482df5-9439-4713-ad6a-ed0f955a1d1b",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -48,
+        512
+      ],
+      "id": "fd41804e-9069-4c12-87f1-db3cec960553",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        192,
+        640
+      ],
+      "id": "d9456227-28b5-43b2-8e65-009b80d1c0de",
+      "name": "Wait",
+      "webhookId": "1a4772e2-32b3-452d-bf84-94e208459bc5"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        144,
+        512
+      ],
+      "id": "62124415-01c5-470d-bc37-e0005dcce51e",
+      "name": "Wait1",
+      "webhookId": "a309af8c-c369-4a46-bf4c-e8890f3f657d"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f87ffa61-f279-48bc-8479-9e45062ef762",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        352,
+        512
+      ],
+      "id": "40d16785-0b25-4b80-8024-9d164fddb513",
+      "name": "Filter1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        592,
+        512
+      ],
+      "id": "37049ba7-0c00-4cbd-bf15-3a7d8b36b6d8",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        592,
+        656
+      ],
+      "id": "d1f0aeaf-5c35-44eb-83f7-de5f39d6e148",
+      "name": "Remove Duplicates1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        768,
+        656
+      ],
+      "id": "c97afcf9-27c3-452a-a8ac-02dca795a4ba",
+      "name": "Append row in sheet"
+    },
+    {
+      "parameters": {
+        "url": "jttps:",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "Content",
+              "value": "={{ $json.message.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        288,
+        160
+      ],
+      "id": "aa283522-484a-4b8c-9c3f-d0ba318018cf",
+      "name": "Scrape google maps"
+    },
+    {
+      "parameters": {
+        "jsCode": "return input.results.map(item => ({\nname: item.name,\nwebsite: item.site,\naddress: item.full_address,\nphone: item.phone\n}))"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        160
+      ],
+      "id": "b2533eb0-9922-4107-9eb9-ab3498e8a342",
+      "name": "Extract urls"
+    },
+    {
+      "parameters": {
+        "url": "={{website}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -16,
+        640
+      ],
+      "id": "575865f0-ab52-4041-8ab6-cc3e96ee261f",
+      "name": "Scrape site"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = input.body;\n\nconst emails = html.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/ig);\n\nreturn {\nemails: emails || []\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        640
+      ],
+      "id": "6f8cafb2-f2c0-400b-b6f9-63964b91dd3a",
+      "name": "Extract emails"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-sonnet-4-20250514",
+          "mode": "list",
+          "cachedResultName": "claude-sonnet-4-20250514"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=\"Jesteś asystentem który tworzy zapytania \n    do Google Maps API. \n    \n    Na podstawie danych:\n    Branża: {{ $json['Branża/fraza'] }}\n    Miasto: {{ $json.Miasto }}\n   \n    Wygeneruj 5 różnych fraz wyszukiwania\n    do Google Maps w formacie JSON:\n    {\n      'queries': [\n        'fraza 1',\n        'fraza 2',\n        'fraza 3'\n      ]\n    }\n    Zwróć TYLKO JSON bez żadnego tekstu.\""
+            }
+          ]
+        },
+        "options": {
+          "webSearch": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        176
+      ],
+      "id": "c38912a2-6576-4d32-a010-4006763174b9",
+      "name": "Message a model1"
+    }
+  ],
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scrape site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Extract emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Filter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter1": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape google maps": {
+      "main": [
+        [
+          {
+            "node": "Extract urls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract urls": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape site": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract emails": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Scrape google maps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "2ea7f983-a42f-40dd-a49a-19aa55d507ef",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:13:42.033Z",
+      "createdAt": "2026-04-04T10:13:42.033Z",
+      "role": "workflow:owner",
+      "workflowId": "P34ZB9BthEZuMkSJ",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
