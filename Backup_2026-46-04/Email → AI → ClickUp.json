@@ -1,0 +1,358 @@
+{
+  "updatedAt": "2026-04-04T10:07:56.746Z",
+  "createdAt": "2026-04-04T10:07:56.095Z",
+  "id": "DvhBVNegMMgdrBLK",
+  "name": "Email → AI → ClickUp",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-nano",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-NANO"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Jesteś asystentem agencji marketingowej analizującym przychodzące maile.\n\nDANE MAILA:\n- Od: {{ $json.From }}\n- Temat: {{ $json.Subject }}\n- Treść: {{ $json.snippet }}\n\nZADANIE 1 - PRZYPISZ OSOBĘ:\n\nPrzeanalizuj treść i przypisz dokładnie jedną osobę:\n\nMACIEK (Grafik) - gdy mail dotyczy:\n\nlogo, banery, ulotki, plakaty\nidentyfikacja wizualna, rebranding\nedycja zdjęć, grafiki, infografiki\nprojekty do druku lub online\n\nWOJTEK (Social Media) - gdy mail dotyczy:\n\nposty, treści, content na social media\nFacebook, Instagram, LinkedIn, TikTok\nkampanie reklamowe w social mediach\nstrategia contentowa, harmonogram postów\ncopywriting\n\nAGNIESZKA (Technik) - gdy mail dotyczy:\n\nstrona internetowa, landing page\nbłędy techniczne, awarie\nSEO, Google Ads, Analytics\ndomeny, hosting, integracje\n\nZADANIE 2 - STREŚĆ MAILA:\n\nNapisz streszczenie maksymalnie 2-3 zdania:\n\nco klient potrzebuje\nczy jest deadline lub pilność\n\nZADANIE 3 - ZNAJDŹ DANE Z TREŚCI MAILA:\n\nZnajdź adres email, z którego wysłano mail.\nZnajdź imię i nazwisko osoby – szukaj szczególnie w stopce maila i po zwrotach typu „Pozdrawiam”, „Z pozdrowieniami”, „Pozdrawiam serdecznie”. Może być samo imię lub samo nazwisko.\nZnajdź domenę klienta z treści maila (np. z linków lub adresu email).\n\nODPOWIEDŹ WYŁĄCZNIE W FORMACIE JSON:\n\n{\n  \"przypisz_do\": \"Maciek\" | \"Wojtek\" | \"Agnieszka\",\n  \"dzial\": \"Grafik\" | \"Social Media\" | \"Technik\",\n  \"streszczenie\": \"...\",\n  \"pilne\": \"pilnie\" | \"nie pilne\",\n  \"klient_imie_nazwisko\": \"...\",\n  \"klient_domena\": \"...\",\n  \"mail_wysylki\": \"...\"\n}\n\nInstrukcje dodatkowe dla GPT-4.1 Mini:\n\nZawsze koncentruj się na ostatnich liniach maila dla imienia i nazwiska.\nIgnoruj wszystko, co wygląda jak firma, stanowisko, numer telefonu lub linki w stopce.\nZwracaj tylko czysty JSON, żadnych komentarzy ani dodatkowych tekstów."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "311f6837-635d-461c-ab8b-329e5dc82518",
+      "name": "AI Kategoryzacja",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const parsed = JSON.parse(item.json.message.content);\n\nreturn parsed;"
+      },
+      "id": "d957c150-0979-404d-99cb-412b727ac75d",
+      "name": "Parsuj odpowiedz AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "951b3570-c9bc-48ad-a50b-d00d4f7b6107",
+                    "leftValue": "={{ $('Parsuj odpowiedz AI').item.json.przypisz_do }}",
+                    "rightValue": "Maciek",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "08d6233a-e195-4e84-83d9-414273821f45",
+                    "leftValue": "={{ $('Parsuj odpowiedz AI').item.json.przypisz_do }}",
+                    "rightValue": "Wojtek",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "7671f997-f2d4-4196-87be-6254c5865639",
+                    "leftValue": "={{ $('Parsuj odpowiedz AI').item.json.przypisz_do }}",
+                    "rightValue": "Agnieszka",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "8dd407a9-0667-45d5-9044-a8bfe6da6f2d",
+      "name": "Przypisz do osoby",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        144,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            },
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "13b95508-e0e6-42bb-99e0-b5256cd23851",
+      "name": "Gmail Trigger"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "team": "90152423592",
+        "space": "901510624077",
+        "folderless": true,
+        "list": "901522401460",
+        "name": "={{ $('Gmail Trigger').item.json.Subject }}",
+        "additionalFields": {
+          "content": "=**Imie i Nazwisko:** {{ $json.klient_imie_nazwisko }}\n**Nadawcy mail:** {{ $json.mail_wysylki }}\n**Kategoria:** {{ $json.dzial }}\n**Priorytet:** {{ $json.pilne }}\n**Przypisano:** {{ $json.przypisz_do }}\n\n---\n**Podsumowanie AI:**\n{{ $json.streszczenie }}\n\n---\n**Treść maila:**\n{{ $('Gmail Trigger').item.json.snippet }}",
+          "priority": "={{ $('Parsuj odpowiedz AI').first().json.priorytet === 'wysoki' ? 1 : $('Parsuj odpowiedz AI').first().json.priorytet === 'sredni' ? 3 : 4 }}",
+          "status": "nowy klient"
+        }
+      },
+      "id": "86f110a2-06c6-483d-ac27-29714721a63f",
+      "name": "Nowy task",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "=autoleady@gmail.com",
+        "subject": "=🎨 Nowe zadanie graficzne: {{ $('Gmail Trigger').item.json.Subject }}",
+        "message": "=<h2>Nowe zgłoszenie graficzne</h2><p><b>Od:</b> {{ $('Parsuj odpowiedz AI').item.json.mail_wysylki }}</p><p><b>Temat:</b> {{ $('Gmail Trigger').item.json.Subject }}</p><p><b>Priorytet:</b> {{ $('Parsuj odpowiedz AI').item.json.pilne }}</p><p><b>AI:</b> {{ $('Parsuj odpowiedz AI').item.json.streszczenie }}</p><p>Task ClickUp: {{ $('Nowy task').first().json.id }}</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        400
+      ],
+      "id": "9363bb22-9343-47aa-abf0-73410ecf59dd",
+      "name": "Maciek",
+      "webhookId": "28a5cdfa-70fc-494c-8420-f7639b569867"
+    },
+    {
+      "parameters": {
+        "sendTo": "=autoleady@gmail.com",
+        "subject": "=📱 Nowe zadanie social media: {{ $('Wpisanie danych').item.json['Temat(mail)'] }}",
+        "message": "=<h2>Nowe zgłoszenie graficzne</h2><p><b>Od:</b> {{ $('Parsuj odpowiedz AI').item.json.mail_wysylki }}</p><p><b>Temat:</b> {{ $('Gmail Trigger').item.json.Subject }}</p><p><b>Priorytet:</b> {{ $('Parsuj odpowiedz AI').item.json.pilne }}</p><p><b>AI:</b> {{ $('Parsuj odpowiedz AI').item.json.streszczenie }}</p><p>Task ClickUp: {{ $('Nowy task').first().json.id }}</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        528
+      ],
+      "id": "687dfe9f-ee8f-4766-9118-03de2915e309",
+      "name": "Wojtek",
+      "webhookId": "28a5cdfa-70fc-494c-8420-f7639b569867"
+    },
+    {
+      "parameters": {
+        "sendTo": "=autoleady@gmail.com",
+        "subject": "=⚙️ Nowe zadanie techniczne: {{ $('Gmail Trigger').item.json.Subject }}",
+        "message": "=<h2>Nowe zgłoszenie techniczne</h2><p><b>Od:</b> {{ $('Parsuj odpowiedz AI').item.json.mail_wysylki }}</p><p><b>Temat:</b> {{ $('Gmail Trigger').item.json.Subject }}</p><p><b>Priorytet:</b> {{ $('Parsuj odpowiedz AI').item.json.pilne }}</p><p><b>AI:</b> {{ $('Parsuj odpowiedz AI').item.json.streszczenie }}</p><p>Task ClickUp: {{ $('Nowy task').first().json.id }}</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        656
+      ],
+      "id": "dbf6b765-4238-4993-94fb-19f517dd90c5",
+      "name": "Agnieszka",
+      "webhookId": "28a5cdfa-70fc-494c-8420-f7639b569867"
+    },
+    {
+      "parameters": {
+        "content": "AI kategoryzuje dane -> zmiana typu danych oraz wyciągniecie na poszczegolne segmenty",
+        "height": 176,
+        "width": 480,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -80,
+        144
+      ],
+      "typeVersion": 1,
+      "id": "6d7dbabf-98f3-4130-b4f6-ac358e031478",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Utworzenie taska i przypisanie do osoby",
+        "height": 288,
+        "width": 384,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -112,
+        384
+      ],
+      "typeVersion": 1,
+      "id": "c1204258-5ff3-46b4-8ab3-7181329453b5",
+      "name": "Sticky Note1"
+    }
+  ],
+  "connections": {
+    "AI Kategoryzacja": {
+      "main": [
+        [
+          {
+            "node": "Parsuj odpowiedz AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsuj odpowiedz AI": {
+      "main": [
+        [
+          {
+            "node": "Nowy task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Przypisz do osoby": {
+      "main": [
+        [
+          {
+            "node": "Maciek",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wojtek",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agnieszka",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Kategoryzacja",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nowy task": {
+      "main": [
+        [
+          {
+            "node": "Przypisz do osoby",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "dcbc58a2-f274-4ea2-9c6a-ace684c6d1bb",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:07:56.098Z",
+      "createdAt": "2026-04-04T10:07:56.098Z",
+      "role": "workflow:owner",
+      "workflowId": "DvhBVNegMMgdrBLK",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
