@@ -1,0 +1,262 @@
+{
+  "updatedAt": "2026-04-04T10:11:20.356Z",
+  "createdAt": "2026-04-04T10:11:20.042Z",
+  "id": "wLFf0sNWM2Byf73g",
+  "name": "Agencja - Automatyczny Raport Miesięczny",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "6c7cf53d-4ed2-4679-b6cb-ecdddbdac233",
+      "name": "⏰ 1-szy każdego miesiąca o 8:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getRows",
+        "documentId": {
+          "value": "TWOJE_GOOGLE_SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        }
+      },
+      "id": "37b0c479-9942-48c1-8b9e-85dce45cdf2b",
+      "name": "📊 Pobierz aktywnych klientów",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getRows",
+        "documentId": {
+          "value": "TWOJE_GOOGLE_SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        }
+      },
+      "id": "d087dd94-8076-48eb-ba21-5d1612361939",
+      "name": "📊 Pobierz metryki za poprzedni miesiąc",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        224,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const klienci = $('📊 Pobierz aktywnych klientów').all();\nconst metryki = $('📊 Pobierz metryki za poprzedni miesiąc').all();\n\nconst now = new Date();\nconst prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);\nconst miesiacNazwa = prevMonth.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });\nconst miesiacNazwaCapital = miesiacNazwa.charAt(0).toUpperCase() + miesiacNazwa.slice(1);\n\nconst raporty = [];\n\nfor (const klient of klienci) {\n  const k = klient.json;\n  \n  const metrykaKlienta = metryki.find(m => \n    m.json['ID Projektu'] === k['ID Projektu']\n  )?.json || {};\n  \n  const impressions = parseInt(metrykaKlienta['Wyswietlenia'] || 0);\n  const clicks = parseInt(metrykaKlienta['Klikniecia'] || 0);\n  const conversions = parseInt(metrykaKlienta['Konwersje'] || 0);\n  const spend = parseFloat(metrykaKlienta['Wydatki'] || 0);\n  const reach = parseInt(metrykaKlienta['Zasieg'] || 0);\n  const followers = parseInt(metrykaKlienta['Nowi followersи'] || 0);\n  const organicClicks = parseInt(metrykaKlienta['Klikniecia organiczne'] || 0);\n  const avgPosition = parseFloat(metrykaKlienta['Srednia pozycja'] || 0);\n  \n  const prevImpressions = parseInt(metrykaKlienta['Wyswietlenia poprzedni'] || 0);\n  const prevClicks = parseInt(metrykaKlienta['Klikniecia poprzedni'] || 0);\n  const prevConversions = parseInt(metrykaKlienta['Konwersje poprzedni'] || 0);\n  \n  const ctr = clicks > 0 && impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) : '0.00';\n  const cpa = conversions > 0 ? (spend / conversions).toFixed(2) : '0';\n  const cpc = clicks > 0 ? (spend / clicks).toFixed(2) : '0';\n  \n  const zmImpresions = prevImpressions > 0 ? (((impressions - prevImpressions) / prevImpressions) * 100).toFixed(0) : 0;\n  const zmClicks = prevClicks > 0 ? (((clicks - prevClicks) / prevClicks) * 100).toFixed(0) : 0;\n  const zmConversions = prevConversions > 0 ? (((conversions - prevConversions) / prevConversions) * 100).toFixed(0) : 0;\n  \n  function arrowHtml(val) {\n    const num = parseFloat(val);\n    if (num > 0) return `<span style=\"color:#10B981\">▲ +${val}%</span>`;\n    if (num < 0) return `<span style=\"color:#EF4444\">▼ ${val}%</span>`;\n    return `<span style=\"color:#6B7280\">→ 0%</span>`;\n  }\n  \n  raporty.push({\n    json: {\n      projectId: k['ID Projektu'],\n      klientNazwa: k['Nazwa Klienta'],\n      klientEmail: k['Email'],\n      pmOsoba: k['PM'],\n      pakiet: k['Pakiet'],\n      miesiacNazwaCapital,\n      impressions: impressions.toLocaleString('pl-PL'),\n      clicks: clicks.toLocaleString('pl-PL'),\n      conversions: conversions.toLocaleString('pl-PL'),\n      spend: spend.toLocaleString('pl-PL', {minimumFractionDigits: 2}),\n      reach: reach.toLocaleString('pl-PL'),\n      followers,\n      organicClicks: organicClicks.toLocaleString('pl-PL'),\n      avgPosition: avgPosition.toFixed(1),\n      ctr,\n      cpa,\n      cpc,\n      zmImpresionsHtml: arrowHtml(zmImpresions),\n      zmClicksHtml: arrowHtml(zmClicks),\n      zmConversionsHtml: arrowHtml(zmConversions)\n    }\n  });\n}\n\nreturn raporty;"
+      },
+      "id": "eba90d13-0d53-4879-bb54-c0899bc1207b",
+      "name": "⚙️ Przygotuj dane raportów",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.klientEmail }}",
+        "subject": "=📊 Raport miesięczny - {{ $json.miesiacNazwaCapital }} | {{ $json.klientNazwa }}",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n  <meta charset='UTF-8'>\n  <style>\n    *{box-sizing:border-box;}\n    body{font-family:Arial,sans-serif;color:#1F2937;margin:0;padding:0;background:#F3F4F6;}\n    .wrapper{padding:20px;}\n    .container{max-width:680px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);}\n    .header{background:linear-gradient(135deg,#1E40AF 0%,#3B82F6 50%,#06B6D4 100%);color:white;padding:40px 35px;text-align:center;}\n    .header h1{margin:0 0 8px 0;font-size:26px;}\n    .header p{margin:0;opacity:0.85;font-size:15px;}\n    .body{padding:35px;}\n    .section-title{font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:#6B7280;margin:25px 0 12px 0;}\n    .metrics-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:25px;}\n    .metric-card{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:18px;text-align:center;}\n    .metric-card.highlight{background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border-color:#93C5FD;}\n    .metric-value{font-size:26px;font-weight:bold;color:#1E40AF;margin-bottom:4px;}\n    .metric-label{font-size:12px;color:#64748B;margin-bottom:6px;}\n    .metric-change{font-size:12px;font-weight:bold;}\n    .summary-box{background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:20px;margin:20px 0;}\n    .summary-box h3{margin:0 0 10px 0;color:#15803D;font-size:15px;}\n    .table{width:100%;border-collapse:collapse;margin:15px 0;font-size:14px;}\n    .table th{background:#1E40AF;color:white;padding:10px 12px;text-align:left;font-weight:600;}\n    .table td{padding:10px 12px;border-bottom:1px solid #E5E7EB;}\n    .table tr:nth-child(even) td{background:#F8FAFC;}\n    .cta-section{text-align:center;padding:25px 0;border-top:1px solid #E5E7EB;margin-top:25px;}\n    .cta{display:inline-block;background:linear-gradient(135deg,#1E40AF,#3B82F6);color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px;}\n    .footer{background:#1F2937;color:#9CA3AF;padding:25px;text-align:center;font-size:12px;}\n    .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:bold;}\n    .badge-blue{background:#DBEAFE;color:#1D4ED8;}\n  </style>\n</head>\n<body>\n<div class='wrapper'>\n<div class='container'>\n  \n  <div class='header'>\n    <div style='font-size:44px;margin-bottom:12px;'>📊</div>\n    <h1>Raport Miesięczny</h1>\n    <p>{{ $json.miesiacNazwaCapital }} | <span style='opacity:0.9;'>{{ $json.klientNazwa }}</span></p>\n    <div style='margin-top:12px;'><span class='badge badge-blue' style='background:rgba(255,255,255,0.2);color:white;'>{{ $json.pakiet }}</span></div>\n  </div>\n  \n  <div class='body'>\n    <p>Hej! Poniżej znajdziesz podsumowanie wyników Twoich kampanii w miesiącu <strong>{{ $json.miesiacNazwaCapital }}</strong>.</p>\n    \n    <div class='section-title'>📈 Kluczowe wyniki</div>\n    \n    <div class='metrics-grid'>\n      <div class='metric-card highlight'>\n        <div class='metric-value'>{{ $json.impressions }}</div>\n        <div class='metric-label'>Wyświetlenia</div>\n        <div class='metric-change'>{{ $json.zmImpresionsHtml }}</div>\n      </div>\n      <div class='metric-card highlight'>\n        <div class='metric-value'>{{ $json.clicks }}</div>\n        <div class='metric-label'>Kliknięcia</div>\n        <div class='metric-change'>{{ $json.zmClicksHtml }}</div>\n      </div>\n      <div class='metric-card'>\n        <div class='metric-value'>{{ $json.conversions }}</div>\n        <div class='metric-label'>Konwersje</div>\n        <div class='metric-change'>{{ $json.zmConversionsHtml }}</div>\n      </div>\n      <div class='metric-card'>\n        <div class='metric-value'>{{ $json.spend }} zł</div>\n        <div class='metric-label'>Wydatki na reklamy</div>\n        <div class='metric-change'>&nbsp;</div>\n      </div>\n    </div>\n    \n    <div class='section-title'>🎯 Wskaźniki efektywności</div>\n    \n    <table class='table'>\n      <tr><th>Wskaźnik</th><th>Wartość</th></tr>\n      <tr><td>CTR (Click-Through Rate)</td><td><strong>{{ $json.ctr }}%</strong></td></tr>\n      <tr><td>CPC (Koszt za kliknięcie)</td><td><strong>{{ $json.cpc }} zł</strong></td></tr>\n      <tr><td>CPA (Koszt za konwersję)</td><td><strong>{{ $json.cpa }} zł</strong></td></tr>\n      <tr><td>Zasięg organiczny</td><td><strong>{{ $json.reach }}</strong></td></tr>\n      <tr><td>Nowi obserwujący</td><td><strong>+{{ $json.followers }}</strong></td></tr>\n      <tr><td>Kliknięcia organiczne (SEO)</td><td><strong>{{ $json.organicClicks }}</strong></td></tr>\n      <tr><td>Średnia pozycja (SEO)</td><td><strong>{{ $json.avgPosition }}</strong></td></tr>\n    </table>\n    \n    <div class='summary-box'>\n      <h3>✅ Podsumowanie miesiąca</h3>\n      <p style='margin:0;color:#166534;font-size:14px;line-height:1.7;'>Twoje kampanie zostały zrealizowane zgodnie z planem. W przypadku pytań lub chęci omówienia wyników zapraszamy na rozmowę z Twoim Project Managerem - <strong>{{ $json.pmOsoba }}</strong>.</p>\n    </div>\n    \n    <div class='cta-section'>\n      <p style='color:#6B7280;margin-bottom:15px;'>Chcesz omówić wyniki lub zaplanować kolejny miesiąc?</p>\n      <a href='https://calendly.com/TWOJ-LINK' class='cta'>📅 Umów rozmowę z PM →</a>\n    </div>\n  </div>\n  \n  <div class='footer'>\n    <p>Twoja Agencja Marketingowa Sp. z o.o.<br>\n    kontakt@agencja.pl | +48 123 456 789<br>\n    Raport wygenerowany automatycznie {{ $now.toLocaleDateString('pl-PL') }}</p>\n  </div>\n  \n</div>\n</div>\n</body>\n</html>",
+        "options": {
+          "replyTo": "pm@agencja.pl"
+        }
+      },
+      "id": "aff0a312-d3e6-4787-bfd7-e5b3a016bbe5",
+      "name": "📧 Wyślij raport do klienta",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "webhookId": "2db5e040-e932-4288-87fa-2d77a6f17411"
+    },
+    {
+      "parameters": {
+        "authentication": "apiToken",
+        "list": "TWOJ_CLICKUP_LIST_ID",
+        "name": "=📊 Omów raport - {{ $json.klientNazwa }} | {{ $json.miesiacNazwaCapital }}",
+        "additionalFields": {
+          "dueDate": "={{ Date.now() + 259200000 }}",
+          "priority": 3,
+          "status": "do zrobienia"
+        }
+      },
+      "id": "6494e411-8c96-4d47-9e5e-7dc3653e92f4",
+      "name": "📋 Utwórz zadanie omówienia w ClickUp",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        672,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "value": "TWOJE_GOOGLE_SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        },
+        "sheetName": {
+          "value": "Wysłane Raporty",
+          "__rl": true,
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID Projektu": "={{ $json.projectId }}",
+            "Klient": "={{ $json.klientNazwa }}",
+            "Miesiąc": "={{ $json.miesiacNazwaCapital }}",
+            "Data wysłania": "={{ $now.toLocaleDateString('pl-PL') }}",
+            "Wyświetlenia": "={{ $json.impressions }}",
+            "Kliknięcia": "={{ $json.clicks }}",
+            "Konwersje": "={{ $json.conversions }}",
+            "Wydatki": "={{ $json.spend }}",
+            "CTR": "={{ $json.ctr }}",
+            "CPC": "={{ $json.cpc }}",
+            "Status": "WYSŁANY"
+          }
+        },
+        "options": {}
+      },
+      "id": "68590bb7-c191-4147-9f9c-772d5967b546",
+      "name": "📊 Zapisz raport w historii Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        672,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "pm@agencja.pl",
+        "subject": "=✅ Raporty miesięczne wysłane - {{ $json.miesiacNazwaCapital }}",
+        "message": "=<div style='font-family:Arial;max-width:500px;margin:0 auto;padding:20px;'>\n  <div style='background:#ECFDF5;border:2px solid #6EE7B7;border-radius:8px;padding:20px;margin-bottom:15px;'>\n    <h2 style='margin:0;color:#065F46;'>✅ Raport wysłany pomyślnie</h2>\n  </div>\n  <p><strong>Klient:</strong> {{ $json.klientNazwa }}</p>\n  <p><strong>Miesiąc:</strong> {{ $json.miesiacNazwaCapital }}</p>\n  <p><strong>Email:</strong> {{ $json.klientEmail }}</p>\n  <p><strong>Zadanie w ClickUp:</strong> Omów raport z klientem w ciągu 3 dni</p>\n  <a href='https://docs.google.com/spreadsheets/d/TWOJE_GOOGLE_SHEETS_ID' style='background:#2563EB;color:white;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:10px;font-weight:bold;'>📊 Zobacz historię raportów</a>\n</div>",
+        "options": {}
+      },
+      "id": "8f7e3524-6e1d-41de-8f67-097fcb6bbc61",
+      "name": "📧 Powiadom PM o wysłaniu raportu",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        672,
+        512
+      ],
+      "webhookId": "7855f7b5-a003-4a35-a2a6-606b22a16fb8"
+    }
+  ],
+  "connections": {
+    "⏰ 1-szy każdego miesiąca o 8:00": {
+      "main": [
+        [
+          {
+            "node": "📊 Pobierz aktywnych klientów",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📊 Pobierz metryki za poprzedni miesiąc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Pobierz aktywnych klientów": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Przygotuj dane raportów",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Pobierz metryki za poprzedni miesiąc": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Przygotuj dane raportów",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Przygotuj dane raportów": {
+      "main": [
+        [
+          {
+            "node": "📧 Wyślij raport do klienta",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📋 Utwórz zadanie omówienia w ClickUp",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📊 Zapisz raport w historii Sheets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📧 Powiadom PM o wysłaniu raportu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "a98516b6-de6e-4e1b-bc27-21b095f33cb0",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:11:20.045Z",
+      "createdAt": "2026-04-04T10:11:20.045Z",
+      "role": "workflow:owner",
+      "workflowId": "wLFf0sNWM2Byf73g",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
