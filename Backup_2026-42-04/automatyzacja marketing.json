@@ -1,0 +1,990 @@
+{
+  "updatedAt": "2026-04-04T10:13:14.944Z",
+  "createdAt": "2026-04-04T10:13:14.669Z",
+  "id": "KJ1Rwn3vHmoYOhoF",
+  "name": "automatyzacja marketing",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "team": "90152423592",
+        "events": [
+          "taskCreated"
+        ],
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUpTrigger",
+      "typeVersion": 1,
+      "position": [
+        -768,
+        352
+      ],
+      "id": "b999690c-85b2-41ef-a1c0-b92e198327ae",
+      "name": "ClickUp Trigger",
+      "webhookId": "d7819892-46a4-4b38-9c9b-0195cd630b51"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1lAgEaFWKXaAkG-ABw8oQITEMqEsZR75TqUAlhaITQ7Q",
+          "mode": "list",
+          "cachedResultName": "Lead crm",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1lAgEaFWKXaAkG-ABw8oQITEMqEsZR75TqUAlhaITQ7Q/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Arkusz1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1lAgEaFWKXaAkG-ABw8oQITEMqEsZR75TqUAlhaITQ7Q/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "={{ $json.status.status }}",
+            "Miasto": "={{ $json.custom_fields[1].value }}",
+            "Telefon": "={{ $json.custom_fields[2].value }}",
+            "Email ": "={{ $json.custom_fields[3].value }}",
+            "Imię": "={{ $json.custom_fields[4].value }}",
+            "Data": "={{ $json.date_created }}",
+            "Budżet": "={{ $json.custom_fields[0].value }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Data",
+              "displayName": "Data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Imię",
+              "displayName": "Imię",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email ",
+              "displayName": "Email ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Telefon",
+              "displayName": "Telefon",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Budżet",
+              "displayName": "Budżet",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Miasto",
+              "displayName": "Miasto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -112,
+        352
+      ],
+      "id": "66f45486-7786-4fc8-8625-54878860336a",
+      "name": "Append row in sheet"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Zadanie\n\nOceń czy lead sprzedażowy jest HOT czy COLD.\n\nDane leada\n\nBudżet: {{ $json['Budżet'] }}\nOpis zapytania klienta: {{ $('Get a task').item.json.custom_fields[5].value }}\n\nZasady oceny\nHOT\n\nLead oznacz jako HOT, jeżeli spełnia przynajmniej jeden warunek:\n\nbudżet ≥ 10 000 zł\n\nklient jasno opisuje konkretną usługę lub projekt\n\nklient wygląda na gotowego do zakupu (np. chce wycenę, termin, realizację)\n\nCOLD\n\nLead oznacz jako COLD, jeżeli:\n\nbudżet < 10 000 zł\n\nopis jest bardzo ogólny lub niepewny\n\nklient tylko pyta orientacyjnie\n\nbrak budżetu lub brak konkretów\n\nDodatkowe wskazówki\n\njeśli budżet jest wysoki → preferuj HOT\n\njeśli opis wskazuje na pilną realizację → HOT\n\njeśli brak konkretów → COLD\n\nFormat odpowiedzi\n\nZwróć tylko jedno słowo:\n\nHOT\nlub\nCOLD",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        80,
+        352
+      ],
+      "id": "c7a816e7-0177-4b13-be6d-85846379dabc",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        80,
+        512
+      ],
+      "id": "ff9f344e-7c8d-4794-8f0b-da621d46f23d",
+      "name": "OpenAI Chat Model"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "get",
+        "id": "={{ $json.task_id }}"
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        352
+      ],
+      "id": "acd9dd33-12a2-4cee-86d5-f8c86dea3a6c",
+      "name": "Get a task"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('Get a task').item.json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_NZPGF3WF3WY6B7A73DNJ6NZKE2DATSCF"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"HOT\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        512,
+        224
+      ],
+      "id": "96fa7086-7746-44e1-b2cd-ec3386171f96",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== BUDŻET =====\nlet budget = $json.custom_fields?.[0]?.value;\n\nif (budget) {\n  $json.custom_fields[0].value = budget.toString().replace(/\\D/g, \"\");\n}\n\n// ===== TELEFON =====\nlet phone = $json.custom_fields?.[2]?.value;\n\nif (phone) {\n  phone = phone.toString().replace(/\\D/g, \"\");\n\n  if (phone.length === 9) {\n    phone = \"+48\" + phone;\n  }\n\n  if (!phone.startsWith(\"+\")) {\n    phone = \"+\" + phone;\n  }\n\n  $json.custom_fields[2].value = phone;\n}\n\nconst timestamp = Number($json.date_created);\n\nif (!isNaN(timestamp)) {\n  const date = new Date(timestamp);\n\n  const formatted =\n    date.getFullYear() + \"-\" +\n    String(date.getMonth() + 1).padStart(2, \"0\") + \"-\" +\n    String(date.getDate()).padStart(2, \"0\");\n\n  // nadpisujemy oryginalne pole\n  $json.date_created = formatted;\n}\n\n\n// ✅ ZWRACAMY ORYGINALNY OBIEKT\nreturn [\n  {\n    json: { ...$json }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        352
+      ],
+      "id": "8951a12c-a256-48ec-a0e1-59a073554056",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.text }}",
+                    "rightValue": "HOT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "904fe67c-e4cf-49bc-a5d1-06903f6dc4ea"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ebe97fef-c984-4328-b29c-b911d00aa97d",
+                    "leftValue": "={{ $json.text }}",
+                    "rightValue": "COLD",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        336
+      ],
+      "id": "e881d8a9-6269-4483-8b25-8c88b2ea6353",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('Get a task').item.json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_NZPGF3WF3WY6B7A73DNJ6NZKE2DATSCF"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"COLD\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        512,
+        368
+      ],
+      "id": "a8075151-8208-4c48-a58b-08c311dfae08",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1lAgEaFWKXaAkG-ABw8oQITEMqEsZR75TqUAlhaITQ7Q",
+          "mode": "list",
+          "cachedResultName": "Lead crm",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1lAgEaFWKXaAkG-ABw8oQITEMqEsZR75TqUAlhaITQ7Q/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Arkusz1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1lAgEaFWKXaAkG-ABw8oQITEMqEsZR75TqUAlhaITQ7Q/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "={{ $json.status.status }}",
+            "Email ": "={{ $json.custom_fields[3].value }}"
+          },
+          "matchingColumns": [
+            "Email "
+          ],
+          "schema": [
+            {
+              "id": "Data",
+              "displayName": "Data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Imię",
+              "displayName": "Imię",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Email ",
+              "displayName": "Email ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telefon",
+              "displayName": "Telefon",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Budżet",
+              "displayName": "Budżet",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Miasto",
+              "displayName": "Miasto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        688,
+        368
+      ],
+      "id": "9e780e98-fdce-42e9-82b0-187c5c8be137",
+      "name": "Update row in sheet1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1lAgEaFWKXaAkG-ABw8oQITEMqEsZR75TqUAlhaITQ7Q",
+          "mode": "list",
+          "cachedResultName": "Lead crm",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1lAgEaFWKXaAkG-ABw8oQITEMqEsZR75TqUAlhaITQ7Q/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Arkusz1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1lAgEaFWKXaAkG-ABw8oQITEMqEsZR75TqUAlhaITQ7Q/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "={{ $json.status.status }}",
+            "Email ": "={{ $json.custom_fields[3].value }}"
+          },
+          "matchingColumns": [
+            "Email "
+          ],
+          "schema": [
+            {
+              "id": "Data",
+              "displayName": "Data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Imię",
+              "displayName": "Imię",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Email ",
+              "displayName": "Email ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telefon",
+              "displayName": "Telefon",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Budżet",
+              "displayName": "Budżet",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Miasto",
+              "displayName": "Miasto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        688,
+        224
+      ],
+      "id": "a5806be0-6c61-470b-90a5-b807f9fb5835",
+      "name": "Update row in sheet2"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json['Email '] }}",
+        "subject": "Dziękujemy za zgloszenie",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n<title>Email</title>\n</head>\n<body style=\"margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,sans-serif;\">\n\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"background:#f4f4f4;padding:20px 0;\">\n  <tr>\n    <td align=\"center\">\n\n      <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"background:#ffffff;border-radius:8px;overflow:hidden;\">\n        \n        <!-- Header -->\n        <tr>\n          <td style=\"background:#4a6cf7;color:white;padding:20px;text-align:center;font-size:24px;font-weight:bold;\">\n            Twoja Firma\n          </td>\n        </tr>\n\n        <!-- Content -->\n        <tr>\n          <td style=\"padding:30px;color:#333;font-size:16px;line-height:1.6;\">\n            <p>Cześć,</p>\n\n            <p>\n              Dziękujemy za kontakt. Chcieliśmy przekazać kilka informacji\n              dotyczących Twojego zapytania.\n            </p>\n\n            <p>\n              Jeśli masz dodatkowe pytania, śmiało odpowiedz na tę wiadomość.\n            </p>\n\n            <p>Pozdrawiamy,<br><strong>Zespół Twojej Firmy</strong></p>\n          </td>\n        </tr>\n\n        <!-- Button -->\n        <tr>\n          <td align=\"center\" style=\"padding:20px;\">\n            <a href=\"#\" \n               style=\"background:#4a6cf7;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;font-weight:bold;display:inline-block;\">\n               Sprawdź szczegóły\n            </a>\n          </td>\n        </tr>\n\n        <!-- Footer -->\n        <tr>\n          <td style=\"background:#f0f0f0;padding:15px;text-align:center;font-size:12px;color:#777;\">\n            © 2026 Twoja Firma • Wszystkie prawa zastrzeżone\n          </td>\n        </tr>\n\n      </table>\n\n    </td>\n  </tr>\n</table>\n\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        864,
+        224
+      ],
+      "id": "ed61f48a-c9d1-434d-85e3-5bb3fb831a1d",
+      "name": "z formularza",
+      "webhookId": "7acdd75c-c5f4-4274-8558-400126e12e7f"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json['Email '] }}",
+        "subject": "Dziękujemy za zgloszenie",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n<title>Email</title>\n</head>\n<body style=\"margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,sans-serif;\">\n\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"background:#f4f4f4;padding:20px 0;\">\n  <tr>\n    <td align=\"center\">\n\n      <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"background:#ffffff;border-radius:8px;overflow:hidden;\">\n        \n        <!-- Header -->\n        <tr>\n          <td style=\"background:#4a6cf7;color:white;padding:20px;text-align:center;font-size:24px;font-weight:bold;\">\n            Twoja Firma\n          </td>\n        </tr>\n\n        <!-- Content -->\n        <tr>\n          <td style=\"padding:30px;color:#333;font-size:16px;line-height:1.6;\">\n            <p>Cześć,</p>\n\n            <p>\n              Dziękujemy za kontakt. Chcieliśmy przekazać kilka informacji\n              dotyczących Twojego zapytania.\n            </p>\n\n            <p>\n              Jeśli masz dodatkowe pytania, śmiało odpowiedz na tę wiadomość.\n            </p>\n\n            <p>Pozdrawiamy,<br><strong>Zespół Twojej Firmy</strong></p>\n          </td>\n        </tr>\n\n        <!-- Button -->\n        <tr>\n          <td align=\"center\" style=\"padding:20px;\">\n            <a href=\"#\" \n               style=\"background:#4a6cf7;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;font-weight:bold;display:inline-block;\">\n               Sprawdź szczegóły\n            </a>\n          </td>\n        </tr>\n\n        <!-- Footer -->\n        <tr>\n          <td style=\"background:#f0f0f0;padding:15px;text-align:center;font-size:12px;color:#777;\">\n            © 2026 Twoja Firma • Wszystkie prawa zastrzeżone\n          </td>\n        </tr>\n\n      </table>\n\n    </td>\n  </tr>\n</table>\n\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        848,
+        368
+      ],
+      "id": "ceff4ad2-9c3f-44f0-a434-00aa02a84d64",
+      "name": "z formularza1",
+      "webhookId": "7acdd75c-c5f4-4274-8558-400126e12e7f"
+    },
+    {
+      "parameters": {
+        "sendTo": "olaf220907@gmail.com",
+        "subject": "🔥 Nowy HOT lead",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n<title>Nowy HOT Lead</title>\n</head>\n\n<body style=\"font-family: Arial, sans-serif; background-color:#f4f6f8; margin:0; padding:20px;\">\n\n<table align=\"center\" width=\"600\" style=\"background:white; border-radius:10px; padding:30px; box-shadow:0 4px 10px rgba(0,0,0,0.05);\">\n\n<tr>\n<td align=\"center\">\n<h2 style=\"color:#e63946;\">🔥 NOWY HOT LEAD</h2>\n<p style=\"color:#555;\">Ten lead ma wysoki budżet – skontaktuj się jak najszybciej.</p>\n</td>\n</tr>\n\n<tr>\n<td>\n\n<table width=\"100%\" style=\"margin-top:20px; font-size:15px; color:#333;\">\n\n<tr>\n<td style=\"padding:8px 0;\"><strong>Imię:</strong></td>\n<td>{{ $('HTTP Request').item.json.custom_fields[4].value }}</td>\n</tr>\n\n<tr>\n<td style=\"padding:8px 0;\"><strong>Email:</strong></td>\n<td>{{ $('HTTP Request').item.json.custom_fields[3].value }}</td>\n</tr>\n\n<tr>\n<td style=\"padding:8px 0;\"><strong>Telefon:</strong></td>\n<td>{{ $('HTTP Request').item.json.custom_fields[2].value }}</td>\n</tr>\n\n<tr>\n<td style=\"padding:8px 0;\"><strong>Miasto:</strong></td>\n<td>{{ $('HTTP Request').item.json.custom_fields[1].value }}</td>\n</tr>\n\n<tr>\n<td style=\"padding:8px 0;\"><strong>Budżet:</strong></td>\n<td><strong style=\"color:#e63946;\">{{ $('HTTP Request').item.json.custom_fields[0].value }}</strong></td>\n</tr>\n\n</table>\n\n</td>\n</tr>\n\n<tr>\n<td align=\"center\" style=\"padding-top:30px;\">\n\n<a href=\"tel:{{ $('Code in JavaScript').item.json.custom_fields[2].value }}\" \nstyle=\"background:#e63946; color:white; padding:14px 28px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block;\">\n📞 Zadzwoń do leada\n</a>\n\n</td>\n</tr>\n\n<tr>\n<td style=\"padding-top:30px; text-align:center; font-size:13px; color:#888;\">\nLead został automatycznie oznaczony jako <strong>HOT</strong> w systemie.\n</td>\n</tr>\n\n</table>\n\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1024,
+        224
+      ],
+      "id": "457dcec7-d6a6-4639-9377-1afd8b35ed2f",
+      "name": "hot lead",
+      "webhookId": "b677478a-1c66-459c-a733-c0017668aab5"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -816,
+        16
+      ],
+      "id": "fb6b3890-72be-47df-882b-561a4c47c106",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/901521833303/task",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_NZPGF3WF3WY6B7A73DNJ6NZKE2DATSCF"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -592,
+        16
+      ],
+      "id": "dcadd114-7d50-4cc6-a09a-ef16fbf428e2",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "get",
+        "id": "={{ $json.id }}"
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "6f2d94ef-c043-45fc-8a3b-80e6e9f5fabe",
+      "name": "Get a task1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== BUDŻET =====\nlet budget = $json.custom_fields?.[0]?.value;\n\nif (budget) {\n  $json.custom_fields[0].value = budget.toString().replace(/\\D/g, \"\");\n}\n\n// ===== TELEFON =====\nlet phone = $json.custom_fields?.[2]?.value;\n\nif (phone) {\n  phone = phone.toString().replace(/\\D/g, \"\");\n\n  if (phone.length === 9) {\n    phone = \"+48\" + phone;\n  }\n\n  if (!phone.startsWith(\"+\")) {\n    phone = \"+\" + phone;\n  }\n\n  $json.custom_fields[2].value = phone;\n}\n\nconst timestamp = Number($json.date_created);\n\nif (!isNaN(timestamp)) {\n  const date = new Date(timestamp);\n\n  const formatted =\n    date.getFullYear() + \"-\" +\n    String(date.getMonth() + 1).padStart(2, \"0\") + \"-\" +\n    String(date.getDate()).padStart(2, \"0\");\n\n  // nadpisujemy oryginalne pole\n  $json.date_created = formatted;\n}\n\n\n// ✅ ZWRACAMY ORYGINALNY OBIEKT\nreturn [\n  {\n    json: { ...$json }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "a0be37fe-445b-4e49-80e3-cf9f3df6bc45",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "tasks",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        16
+      ],
+      "id": "072850bd-4cf6-473b-8a13-25a23388692b",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2df658c6-7c51-4dcd-bae5-86a1d6803f60",
+              "leftValue": "={{ $('Split Out').item.json.status.status }}",
+              "rightValue": "hot",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -256,
+        16
+      ],
+      "id": "ff797968-46f3-4080-9b32-1abec732edce",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "olaf220907@gmail.com",
+        "subject": "=🚨 Przypomnienie: HOT lead czeka na kontakt",
+        "message": "=<h2>HOT lead czeka na kontakt</h2>\n\n<p>Lead został zakwalifikowany jako <b>HOT</b>.</p>\n\n<p><b>Imię:</b> {{ $json.custom_fields[4].value }}</p>\n<p><b>Telefon:</b> {{ $json.custom_fields[2].value }}</p>\n<p><b>Budżet:</b> {{ $json.custom_fields[0].value }}</p>\n\n<a href=\"tel:{{ $json.custom_fields[2].value }}\" \nstyle=\"background:#28a745;color:white;padding:12px 20px;text-decoration:none;border-radius:6px;\">\n📞 Zadzwoń teraz\n</a>\n\n<br><br>\n<br><br>\n\n\n<a href=\"{{ $json.url }}\" \nstyle=\"background:#007bff;color:white;padding:12px 20px;text-decoration:none;border-radius:6px;\">\n📋 Otwórz zadanie\n</a>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        432,
+        0
+      ],
+      "id": "d8e9bf58-7ef8-4121-9bd2-f25d58ddf71e",
+      "name": "Send a message",
+      "webhookId": "817f3d7a-c86d-4d37-bf48-0d6704d7f2e3"
+    }
+  ],
+  "connections": {
+    "ClickUp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get a task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a task": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "z formularza1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet2": {
+      "main": [
+        [
+          {
+            "node": "z formularza",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "z formularza": {
+      "main": [
+        [
+          {
+            "node": "hot lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a task1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Get a task1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "9f8bd110-f44f-4346-9b92-8059ae8484c6",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:13:14.676Z",
+      "createdAt": "2026-04-04T10:13:14.676Z",
+      "role": "workflow:owner",
+      "workflowId": "KJ1Rwn3vHmoYOhoF",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
