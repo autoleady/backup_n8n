@@ -1,0 +1,355 @@
+{
+  "updatedAt": "2026-04-04T13:42:13.126Z",
+  "createdAt": "2026-04-04T13:21:13.291Z",
+  "id": "MbVLbffWdjAAJnl6",
+  "name": "Daily Backup to GitHub",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 22 * * *"
+            }
+          ]
+        }
+      },
+      "id": "dd9ceba7-80a7-4df3-bc55-96e73c788812",
+      "name": "⏰ Cron Trigger 22:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1824,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "5f737511-b682-437f-b1f6-0f5e47cc7e5e",
+      "name": "🔄 Loop Workflows",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1120,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "filters": {},
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1,
+      "position": [
+        -1360,
+        112
+      ],
+      "id": "29fb0005-1b0f-4287-953c-b3b20961c2ab",
+      "name": "Get many workflows",
+      "credentials": {
+        "n8nApi": {
+          "id": "3WigelCisrB1OT0a",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7d8cdfd6-d84d-4f5c-926f-33c5c14aa797",
+              "name": "folderName",
+              "value": "=Backup_{{ $now.format('yyyy-mm-dd') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1584,
+        112
+      ],
+      "id": "ca42cc23-43ef-4577-a37c-c5635e47517c",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ef6dd814-6477-440a-85a9-73fdacf40b88",
+              "name": "nodes",
+              "value": "={{ JSON.stringify($json, null, 2)}}",
+              "type": "string"
+            },
+            {
+              "id": "5451c0ab-3e9a-4f4a-9404-51ad3367c3b7",
+              "name": "fileName",
+              "value": "={{ $json.name }}.json",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -928,
+        112
+      ],
+      "id": "1e48c323-7fd7-483b-bad4-28e958e02135",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "nodes",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -720,
+        112
+      ],
+      "id": "a170aa0d-2f5c-4fd6-b014-51194ab1c023",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "owner": {
+          "__rl": true,
+          "value": "autoleady",
+          "mode": "list",
+          "cachedResultName": "autoleady",
+          "cachedResultUrl": "https://github.com/autoleady"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "backup_n8n",
+          "mode": "list",
+          "cachedResultName": "backup_n8n",
+          "cachedResultUrl": "https://github.com/autoleady/backup_n8n"
+        },
+        "filePath": "={{ $('Edit Fields').item.json.folderName }}/{{ $('Edit Fields1').item.json.fileName }}",
+        "binaryData": true,
+        "commitMessage": "={{ $now.setZone('Poland').format('yyyy-mm-dd') }} Backup gotowy"
+      },
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1.1,
+      "position": [
+        -512,
+        112
+      ],
+      "id": "2bf57377-f7c0-48eb-8f0f-1ca20b4b0009",
+      "name": "Create a file",
+      "webhookId": "6fc30eac-5178-4a49-bc0a-004a5676ca03",
+      "credentials": {
+        "githubApi": {
+          "id": "RByZkGQs6drFas3Q",
+          "name": "GitHub account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -304,
+        208
+      ],
+      "id": "54499dfb-7ada-4b8d-a68c-a399d4157102",
+      "name": "Append row in sheet",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "owner": {
+          "__rl": true,
+          "value": "autoleady",
+          "mode": "list",
+          "cachedResultName": "autoleady",
+          "cachedResultUrl": "https://github.com/autoleady"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "backup_n8n",
+          "mode": "list",
+          "cachedResultName": "backup_n8n",
+          "cachedResultUrl": "https://github.com/autoleady/backup_n8n"
+        },
+        "filePath": "={{ $('Edit Fields').item.json.folderName }}/{{ $('Edit Fields1').item.json.fileName }}",
+        "binaryData": true,
+        "commitMessage": "={{ $now.setZone('Poland').format('yyyy-mm-dd') }} Backup gotowy"
+      },
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1.1,
+      "position": [
+        -880,
+        -48
+      ],
+      "id": "817d7b74-2c7b-42e2-80cc-e0f7006d4c6c",
+      "name": "Create a file1",
+      "webhookId": "6fc30eac-5178-4a49-bc0a-004a5676ca03",
+      "credentials": {
+        "githubApi": {
+          "id": "RByZkGQs6drFas3Q",
+          "name": "GitHub account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    }
+  ],
+  "connections": {
+    "⏰ Cron Trigger 22:00": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Loop Workflows": {
+      "main": [
+        [
+          {
+            "node": "Create a file1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many workflows": {
+      "main": [
+        [
+          {
+            "node": "🔄 Loop Workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Get many workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Create a file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a file": {
+      "main": [
+        [
+          {
+            "node": "🔄 Loop Workflows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "🔄 Loop Workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "44418798-1845-4ab5-b383-b8929b0593e7",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T13:21:13.298Z",
+      "createdAt": "2026-04-04T13:21:13.298Z",
+      "role": "workflow:owner",
+      "workflowId": "MbVLbffWdjAAJnl6",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
