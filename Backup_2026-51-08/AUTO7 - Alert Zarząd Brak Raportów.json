@@ -1,0 +1,2262 @@
+{
+  "updatedAt": "2026-04-08T13:38:49.894Z",
+  "createdAt": "2026-04-07T16:24:49.037Z",
+  "id": "5LBfyjZCpwoWxfuA",
+  "name": "AUTO7 - Alert Zarząd Brak Raportów",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rejestracja",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "3672c615-2fa8-401c-9cf9-b252b27ff797",
+      "name": "WEBHOOK - Rejestracja",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1664,
+        208
+      ],
+      "webhookId": "3d809b07-45e3-4b78-a5bf-a5691b16606c"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// KONFIGURACJA SYSTEMU\n// ============================================\nconst CONFIG = {\n  clickup: {\n    token: 'pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE',\n    spaceId: '90152423592',\n    lists: {\n      hostessyDzisiaj: '901522609104',\n      hostessyRaporty: '901522609109',\n      alertyAktywne:   '901522609082',\n      raportyCodzienne:'901522609089'\n    },\n    fields: {\n      stanKoncowy:      'eb918b95-6861-4fe9-bdcf-d325b866042a',\n      dzienZamkniety:   'e87201aa-9a63-4316-bad0-5d10fc542b9c',\n      liczbaSpoznien:   'fd00d8d9-6e60-49fb-a489-e0f4901512b2',\n      // PODMIEŃ PO DOSTANIU IDS:\n      godzinaPrzyjscia: 'PLACEHOLDER_GODZINA_PRZYJSCIA',\n      czyZarej:         'PLACEHOLDER_CZY_ZAREJESTROWANA',\n      stanPoczatkowy:   'PLACEHOLDER_STAN_POCZATKOWY',\n      stan1300:         'PLACEHOLDER_STAN_1300',\n      rozdanoLacznie:   'PLACEHOLDER_ROZDANO_LACZNIE',\n      alertNiskiStan:   'PLACEHOLDER_ALERT_NISKI_STAN',\n      raportPolowkowy:  'PLACEHOLDER_RAPORT_POLOWKOWY',\n      raportPolOddany:  'PLACEHOLDER_RAPORT_POL_ODDANY',\n      godzinaRapPol:    'PLACEHOLDER_GODZINA_RAP_POL',\n      ocenaPolowyDnia:  'PLACEHOLDER_OCENA_POLOWY',\n      raportKoncowy:    'PLACEHOLDER_RAPORT_KONCOWY',\n      raportKonOddany:  'PLACEHOLDER_RAPORT_KON_ODDANY',\n      godzinaWyjscia:   'PLACEHOLDER_GODZINA_WYJSCIA',\n      etapAktualny:     'PLACEHOLDER_ETAP_AKTUALNY',\n      flagaProblemu:    'PLACEHOLDER_FLAGA_PROBLEMU',\n      email:            'PLACEHOLDER_EMAIL',\n      telefon:          'PLACEHOLDER_TELEFON',\n      nazwaZespolu:     'PLACEHOLDER_NAZWA_ZESPOLU',\n      stanowisko:       'PLACEHOLDER_STANOWISKO',\n      spoznienieMin:    'PLACEHOLDER_SPOZNIENIE_MIN',\n      planowanaGodzina: 'PLACEHOLDER_PLANOWANA_GODZINA'\n    }\n  },\n  godziny: {\n    start: '08:00',\n    koniec: '17:00',\n    raportPolowkowy: '13:00',\n    raportKoncowy: '17:00',\n    progNiskiStan: 30,\n    progSpoznienia: 15,\n    progSpoznienZarzad: 3\n  },\n  emaile: {\n    zarzad: 'autoleads@gmail.com',\n    domyslny: 'testautoleads@gmail.com',\n    system: 'testautoleads@gmail.com'\n  },\n  statusy: {\n    oczekuje: 'OCZEKUJE',\n    etap12: 'ETAP 1-2',\n    etap34: 'ETAP 3-4',\n    etap5: 'ETAP 5',\n    etap6: 'ETAP 6',\n    wymagaUwagi: 'WYMAGA UWAGI',\n    zakonczona: 'ZAKOŃCZONA'\n  }\n};\n\n// Pobierz dane z webhooka\nconst raw = $input.first().json;\nconst d = raw.body || raw;\n\n// Walidacja\nconst errors = [];\nif (!d.imie_nazwisko)   errors.push('Brak imienia i nazwiska');\nif (!d.email)           errors.push('Brak emaila');\nif (!d.stan_poczatkowy || isNaN(parseInt(d.stan_poczatkowy))) {\n  errors.push('Brak lub nieprawidłowy stan początkowy');\n}\n\nif (errors.length > 0) {\n  return [{ json: { ok: false, errors, CONFIG } }];\n}\n\n// Oblicz godzinę i spóźnienie\nconst now = new Date();\nconst hh = now.getHours().toString().padStart(2, '0');\nconst mm = now.getMinutes().toString().padStart(2, '0');\nconst godzina = d.godzina_przyjscia || (hh + ':' + mm);\n\nconst [hP, mP] = godzina.split(':').map(Number);\nconst [hS, mS] = CONFIG.godziny.start.split(':').map(Number);\nconst spoznMin = (hP * 60 + mP) - (hS * 60 + mS);\nconst czySpozn = spoznMin > CONFIG.godziny.progSpoznienia;\n\nconst dataStr = now.toLocaleDateString('pl-PL', {\n  day: '2-digit', month: '2-digit', year: 'numeric'\n});\nconst dataNazwa = now.toLocaleDateString('pl-PL', {\n  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'\n});\n\n// Email pracownika lub domyślny testowy\nconst emailPracownik = d.email.includes('@') \n  ? d.email.trim().toLowerCase() \n  : CONFIG.emaile.domyslny;\n\nreturn [{\n  json: {\n    ok: true,\n    CONFIG,\n    imie: d.imie_nazwisko.trim(),\n    email: emailPracownik,\n    telefon: d.telefon || '',\n    stanowisko: d.stanowisko || 'Stanowisko główne',\n    zespol: d.nazwa_zespolu || 'Hostessy',\n    stanPoczatkowy: parseInt(d.stan_poczatkowy),\n    czyZarej: d.czy_zarejestrowala === 'TAK' || d.czy_zarejestrowala === true,\n    godzina,\n    spoznMin: Math.max(0, spoznMin),\n    czySpozn,\n    dataStr,\n    dataNazwa,\n    listId: CONFIG.clickup.lists.hostessyDzisiaj,\n    mgrEmail: CONFIG.emaile.domyslny,\n    zarzadEmail: CONFIG.emaile.zarzad,\n    sysEmail: CONFIG.emaile.system,\n    timestamp: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "6898e36b-eacd-44d1-aefa-6ef80708f346",
+      "name": "WALIDACJA - Dane i Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1440,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ecee9e0e-3a66-49af-a7b0-8e1fcbee2737",
+      "name": "IF - Dane OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1216,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, message: 'Błąd walidacji', errors: $json.errors }) }}",
+        "options": {}
+      },
+      "id": "dc140b43-75fd-488d-93db-7f5cd39b6edc",
+      "name": "RESPONSE - Błąd",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "007ab725-8de9-4169-9883-b65fd47f0253",
+      "name": "CLICKUP - Utwórz Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1008,
+        112
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LJcXaUcjE7gmtQIs",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dane = $('WALIDACJA - Dane i Config').item.json;\nconst task = $input.first().json;\n\nif (!task.id) {\n  throw new Error('ClickUp nie zwrócił ID taska. Odpowiedź: ' + JSON.stringify(task));\n}\n\nreturn [{\n  json: {\n    ...dane,\n    taskId: task.id,\n    taskUrl: task.url,\n    taskName: task.name\n  }\n}];\n"
+      },
+      "id": "dbbc69af-e974-450f-9625-0fc65f717793",
+      "name": "ZAPISZ - Task ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst C = d.CONFIG;\n\n// Przygotuj aktualizacje custom fields\n// Tylko te pola które mamy już z ID\nconst updates = [\n  {\n    fieldId: C.clickup.fields.stanPoczatkowy,\n    value: d.stanPoczatkowy,\n    name: 'Stan Początkowy'\n  },\n  {\n    fieldId: C.clickup.fields.godzinaPrzyjscia,\n    value: d.godzina,\n    name: 'Godzina Przyjścia'\n  },\n  {\n    fieldId: C.clickup.fields.email,\n    value: d.email,\n    name: 'Email'\n  },\n  {\n    fieldId: C.clickup.fields.telefon,\n    value: d.telefon,\n    name: 'Telefon'\n  },\n  {\n    fieldId: C.clickup.fields.stanowisko,\n    value: d.stanowisko,\n    name: 'Stanowisko'\n  },\n  {\n    fieldId: C.clickup.fields.nazwaZespolu,\n    value: d.zespol,\n    name: 'Nazwa Zespołu'\n  },\n  {\n    fieldId: C.clickup.fields.planowanaGodzina,\n    value: C.godziny.start,\n    name: 'Planowana Godzina'\n  },\n  {\n    fieldId: C.clickup.fields.spoznienieMin,\n    value: d.spoznMin,\n    name: 'Spóźnienie Min'\n  },\n  {\n    fieldId: C.clickup.fields.flagaProblemu,\n    value: d.czySpozn ? 'Spóźnienie' : 'Brak problemów',\n    name: 'Flaga Problemu'\n  },\n  {\n    fieldId: C.clickup.fields.etapAktualny,\n    value: 'Zameldowana',\n    name: 'Etap Aktualny'\n  }\n];\n\n// Filtruj tylko te co nie mają PLACEHOLDER\nconst validUpdates = updates.filter(u => !u.fieldId.startsWith('PLACEHOLDER'));\n\nreturn validUpdates.map(u => ({\n  json: {\n    taskId: d.taskId,\n    taskUrl: d.taskUrl,\n    fieldId: u.fieldId,\n    fieldName: u.name,\n    value: u.value,\n    // Przekaż dane dalej\n    imie: d.imie,\n    email: d.email,\n    zespol: d.zespol,\n    godzina: d.godzina,\n    spoznMin: d.spoznMin,\n    czySpozn: d.czySpozn,\n    stanPoczatkowy: d.stanPoczatkowy,\n    dataStr: d.dataStr,\n    CONFIG: d.CONFIG,\n    mgrEmail: d.mgrEmail,\n    zarzadEmail: d.zarzadEmail,\n    sysEmail: d.sysEmail\n  }\n}));\n"
+      },
+      "id": "69a6ad0b-be35-4ec4-bf48-0b9a892e68ba",
+      "name": "PRZYGOTUJ - Lista Pól do Aktualizacji",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.taskId }}/field/{{ $json.fieldId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "d664b7ac-0919-4eba-af30-d7e844a5f29a",
+      "name": "CLICKUP - Aktualizuj Pole",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -400,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-spoz",
+              "leftValue": "={{ $json.czySpozn }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a6c2a82a-a216-4dec-aabf-00086fe051f9",
+      "name": "IF - Spóźnienie?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.taskId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "d5d8f230-6b60-4063-ab19-09f392ff6055",
+      "name": "CLICKUP - Ustaw Status Wymaga Uwagi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        336,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.taskId }}/comment",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "a90f1547-5221-496b-90ab-4dc1c5c62e7c",
+      "name": "CLICKUP - Komentarz Spóźnienie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        304,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "testautoleads@gmail.com",
+        "subject": "=⚠️ SPÓŹNIENIE | {{ $json.imie }} | {{ $json.spoznMin }} min | {{ $json.dataStr }}",
+        "options": {}
+      },
+      "id": "5d1d3546-9411-45fd-a058-98091d5d80a7",
+      "name": "EMAIL - Alert Spóźnienie do Managera",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        112,
+        80
+      ],
+      "webhookId": "5b68320a-273f-4b68-bf44-87ffa8b30fd2"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=✅ Zarejestrowano! Twój plan na dziś - {{ $json.dataStr }}",
+        "options": {}
+      },
+      "id": "ef343bf7-c723-42bc-b754-42c22e58026f",
+      "name": "EMAIL - Powitalny do Pracownika",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        288,
+        192
+      ],
+      "webhookId": "38e0b5d3-8925-4b9f-ba0b-f50d3b03d81f"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  success: true,\n  message: 'Rejestracja zakończona! Sprawdź email z instrukcjami.',\n  pracownik: $json.imie,\n  taskId: $json.taskId,\n  taskUrl: $json.taskUrl,\n  godzina: $json.godzina,\n  etap: 'Zameldowana'\n}) }}",
+        "options": {}
+      },
+      "id": "31baeee2-aebb-4392-b716-d3539311d918",
+      "name": "RESPONSE - Sukces",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        576,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 6-17 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cfd1b7cb-caec-457b-9f49-5383d2322697",
+      "name": "SCHEDULER - Co 15 min (6:00-17:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1696,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst nowMin = now.getHours() * 60 + now.getMinutes();\nconst startMin = 8 * 60;\nconst minPoStart = nowMin - startMin;\n\nreturn [{\n  json: {\n    listId: '901522609104',\n    listRaporty: '901522609109',\n    listAlerty: '901522609082',\n    token: 'pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE',\n    nowMin,\n    minPoStart,\n    startMin,\n    rapPolMin: 13 * 60,\n    rapKonMin: 17 * 60,\n    progNiskiStan: 30,\n    progSpoznMin: 15,\n    progSpoznZarzad: 3,\n    zarzadEmail: 'autoleady@gmail.com',\n    mgrEmail: 'testautoleady@gmail.com',\n    sysEmail: 'testautoleady@gmail.com',\n    dataStr: now.toLocaleDateString('pl-PL'),\n    timeStr: now.toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'}),\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "95e7ed93-49f0-49ab-a805-1770a722a619",
+      "name": "SETUP - Konfiguracja",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1440,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "false"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 1-2"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 3-4"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 5"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 6"
+            },
+            {
+              "name": "statuses[]",
+              "value": "WYMAGA UWAGI"
+            },
+            {
+              "name": "statuses[]",
+              "value": "OCZEKUJE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5a8d8ce3-32af-4f0e-9136-5651fed378dc",
+      "name": "CLICKUP - Pobierz Aktywne Taski",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        176,
+        1072
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LJcXaUcjE7gmtQIs",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('SETUP - Konfiguracja').item.json;\nconst { nowMin, startMin, minPoStart, rapPolMin, progNiskiStan, progSpoznMin } = cfg;\n\nlet tasks = [];\nconst firstJson = $input.first().json;\n\nif (firstJson.tasks && Array.isArray(firstJson.tasks)) {\n  tasks = firstJson.tasks;\n} else if (Array.isArray(firstJson)) {\n  tasks = firstJson;\n} else {\n  tasks = $input.all().map(item => item.json);\n}\n\ntasks = tasks.filter(t => t.id && t.custom_fields);\n\nconst alerty = [];\nconst stats = {\n  lacznie: tasks.length,\n  obecni: 0,\n  spoznieni: 0,\n  nieobecni: 0,\n  bezRapPol: 0,\n  niskaIlosc: 0,\n  wymagaUwagi: 0\n};\n\n// ============================================\n// MECHANIZM DEDUPLIKACJI\n// Sprawdź kiedy ostatnio wysłano alert dla danego taska+typu\n// Używamy custom field \"Uwagi Managera\" lub date_updated jako proxy\n// GŁÓWNA LOGIKA: alert tego samego typu dla tego samego taska\n// wysyłamy max raz na X minut\n// ============================================\nconst COOLDOWN_SPOZNIENIE   = 240; // min - spóźnienie: raz na 4h (już wiemy, nie spam)\nconst COOLDOWN_NIEOBECNOSC  = 60;  // min - nieobecność: co godzinę\nconst COOLDOWN_BRAK_RAP_POL = 30;  // min - brak raportu pol: co 30 min\nconst COOLDOWN_NISKI_STAN   = 60;  // min - niski stan: co godzinę\n\n// Klucz: taskId_typ → timestamp ostatniego alertu\n// Przechowujemy w custom field \"date_updated\" taska jako proxy\n// LUB sprawdzamy przez pole tekstowe w tasku\n// \n// Najprostsze rozwiązanie: sprawdź date_updated taska\n// Jeśli task był update'owany niedawno przez system = alert już wysłano\n\nfunction minutySinceMs(ms) {\n  const now = Date.now();\n  return Math.floor((now - parseInt(ms)) / 60000);\n}\n\ntasks.forEach(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => {\n    if (f.value !== undefined && f.value !== null) {\n      cf[f.name] = f.value;\n    }\n  });\n\n  const imie    = task.name.trim();\n  const taskId  = task.id;\n  const taskUrl = task.url;\n  const email   = cf['Email'] || cfg.mgrEmail;\n\n  const gPrzyjscia  = cf['Godzina Przyjścia'] || cf['Godzina Przyjscia'] || null;\n  const stan13      = parseInt(cf['Stan o 13:00']    || '0') || 0;\n  const stanPocz    = parseInt(cf['Stan Początkowy'] || cf['Stan Poczatkowy'] || '0') || 0;\n  const rapPol      = cf['Raport Połówkowy'] || cf['Raport Polowkowy'] || null;\n  const liczbaSpozn = parseInt(cf['Liczba Spóźnień (łącznie)'] || '0') || 0;\n  const status      = (task.status?.status || '').toLowerCase();\n\n  // ---- Minuty od ostatniej aktualizacji taska ----\n  const minutesSinceUpdate = minutySinceMs(task.date_updated || task.date_created || 0);\n\n  if (status === 'wymaga uwagi') stats.wymagaUwagi++;\n\n  // ---- OBECNOŚĆ I SPÓŹNIENIE ----\n  if (gPrzyjscia && gPrzyjscia.trim() !== '') {\n    stats.obecni++;\n\n    const parts = gPrzyjscia.split(':');\n    if (parts.length === 2) {\n      const hP        = parseInt(parts[0]) || 0;\n      const mP        = parseInt(parts[1]) || 0;\n      const przyjMin  = hP * 60 + mP;\n      const spoznMinut = przyjMin - startMin;\n\n      if (spoznMinut > progSpoznMin) {\n        stats.spoznieni++;\n\n        // DEDUPLIKACJA SPÓŹNIENIA:\n        // Wyślij alert spóźnienia TYLKO jeśli:\n        // - to pierwsza rejestracja (liczbaSpozn zmiana) - task był update'owany < 30 min temu\n        // - LUB minęło więcej niż COOLDOWN od ostatniego alertu\n        // \n        // Heurystyka: jeśli task był zaktualizowany < 20 min temu\n        // = właśnie się zarejestrowała = wyślij alert (pierwsze spóźnienie tego dnia)\n        // Jeśli update był dawno = już wiemy o tym spóźnieniu = nie wysyłaj ponownie\n        \n        const czyNoweSpoznienie = minutesSinceUpdate < 20;\n        const czyPoKooldownie   = minutesSinceUpdate > COOLDOWN_SPOZNIENIE;\n\n        if (czyNoweSpoznienie || czyPoKooldownie) {\n          alerty.push({\n            typ:          'spoznienie',\n            ikona:        '⚠️',\n            taskId,\n            taskUrl,\n            imie,\n            email,\n            info:         `Spóźnienie ${spoznMinut} min (łącznie: ${liczbaSpozn + 1}x)`,\n            pilne:        liczbaSpozn >= cfg.progSpoznZarzad,\n            spoznMin:     spoznMinut,\n            liczbaSpozn,\n            czyNowe:      czyNoweSpoznienie\n          });\n        }\n        // else: znamy to spóźnienie, nie spamujemy\n      }\n    }\n  } else if (minPoStart > 30) {\n    stats.nieobecni++;\n\n    // DEDUPLIKACJA NIEOBECNOŚCI:\n    // Wyślij alert co COOLDOWN_NIEOBECNOSC minut\n    // Sprawdź przez minutesSinceUpdate:\n    // Pierwsze wykrycie: task nie był update'owany = minutesSinceUpdate duże = wyślij\n    // Kolejne: nie aktualizujemy taska przy braku osoby = zawsze duże = PROBLEM\n    //\n    // Rozwiązanie: użyj nowMin jako \"okna\"\n    // Wysyłaj alert nieobecności tylko co pełną godzinę (np. 9:00, 10:00...)\n    // lub przy pierwszym wykryciu (minPoStart == 31-45)\n    \n    const czyPierwszeWykrycie = minPoStart >= 30 && minPoStart <= 45;\n    const czyCykliczne        = nowMin % 60 < 15; // pierwsze 15 min każdej godziny\n\n    if (czyPierwszeWykrycie || czyCykliczne) {\n      alerty.push({\n        typ:    'nieobecnosc',\n        ikona:  '❌',\n        taskId,\n        taskUrl,\n        imie,\n        email,\n        info:   `Nieobecna ${minPoStart} min po starcie`,\n        pilne:  minPoStart > 60\n      });\n    }\n  }\n\n  // ---- BRAK RAPORTU POŁÓWKOWEGO ----\n  const rapPolOddany = cf['Raport Połówkowy Oddany'] === true\n    || cf['Raport Połówkowy Oddany'] === 'true'\n    || cf['Raport Polowkowy Oddany'] === true\n    || !!rapPol;\n\n  if (nowMin > rapPolMin + 30 && !rapPolOddany && gPrzyjscia) {\n    stats.bezRapPol++;\n\n    // DEDUPLIKACJA BRAK RAPORTU POŁ:\n    // Wysyłaj tylko:\n    // - raz zaraz po 13:30 (nowMin w oknie 810-825)\n    // - raz po 14:00 (nowMin w oknie 840-855) jeśli dalej brak\n    // - raz po 14:30 jako ostatnie przypomnienie\n    \n    const okno1 = nowMin >= rapPolMin + 30  && nowMin < rapPolMin + 45;  // 13:30-13:45\n    const okno2 = nowMin >= rapPolMin + 60  && nowMin < rapPolMin + 75;  // 14:00-14:15\n    const okno3 = nowMin >= rapPolMin + 90  && nowMin < rapPolMin + 105; // 14:30-14:45\n\n    if (okno1 || okno2 || okno3) {\n      alerty.push({\n        typ:      'brak_raportu_pol',\n        ikona:    '📋',\n        taskId,\n        taskUrl,\n        imie,\n        email,\n        info:     `Brak raportu połówkowego (po ${okno1 ? '13:30' : okno2 ? '14:00' : '14:30'})`,\n        pilne:    nowMin > rapPolMin + 60,\n        oknoAlertu: okno1 ? 1 : okno2 ? 2 : 3\n      });\n    }\n  }\n\n  // ---- NISKI STAN ----\n  const stanAktualny = stan13 > 0 ? stan13 : stanPocz;\n  if (stanAktualny > 0 && stanAktualny < progNiskiStan && gPrzyjscia) {\n    stats.niskaIlosc++;\n\n    // DEDUPLIKACJA NISKI STAN:\n    // Task był update'owany gdy wpisano niski stan\n    // Jeśli minutesSinceUpdate < 30 = świeże = wyślij\n    // Jeśli minutesSinceUpdate > COOLDOWN = przypomnij (ale rzadko)\n    \n    const czySwiezyAlert  = minutesSinceUpdate < 30;\n    const czyPoKooldownie = minutesSinceUpdate > COOLDOWN_NISKI_STAN;\n\n    if (czySwiezyAlert || czyPoKooldownie) {\n      alerty.push({\n        typ:    'niski_stan',\n        ikona:  '🔴',\n        taskId,\n        taskUrl,\n        imie,\n        email,\n        info:   `Niski stan produktu: ${stanAktualny} szt. (próg: ${progNiskiStan})`,\n        pilne:  true\n      });\n    }\n  }\n});\n\nconst maAlerty = alerty.length > 0;\nconst maPilne  = alerty.some(a => a.pilne);\n\nreturn [{\n  json: {\n    ...cfg,\n    alerty,\n    stats,\n    maAlerty,\n    maPilne,\n    liczbaAlertow: alerty.length,\n    _debug: {\n      tasksZnalezione: tasks.length,\n      inputFormat: Array.isArray(firstJson) ? 'array' : (firstJson.tasks ? 'tasks_object' : 'items')\n    }\n  }\n}];"
+      },
+      "id": "8b57cace-f472-406c-b979-bc961fe3b8f5",
+      "name": "ANALIZA - Sprawdź Problemy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c-alert",
+              "leftValue": "={{ $json.maAlerty }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fc92a4da-6af4-476a-9557-6e4c378f693b",
+      "name": "IF - Są Alerty?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\n\nconst kolorMap = {\n  spoznienie: '#fff3cd',\n  nieobecnosc: '#f8d7da',\n  brak_raportu_pol: '#d1ecf1',\n  niski_stan: '#f8d7da'\n};\n\nconst listaHTML = d.alerty.map(a => {\n  const kolor = kolorMap[a.typ] || '#f8f9fa';\n  const border = a.pilne ? '#dc3545' : '#ffc107';\n  return `\n  <div style=\"background:${kolor};padding:12px;border-radius:6px;margin:8px 0;border-left:4px solid ${border};\">\n    <strong>${a.ikona} ${a.imie}</strong>\n    ${a.pilne ? '<span style=\"color:red;font-weight:bold;\"> 🚨 PILNE</span>' : ''}\n    <br>\n    <span style=\"color:#555;font-size:13px;\">${a.info}</span>\n    <br>\n    <a href=\"${a.taskUrl}\" style=\"font-size:12px;color:#667eea;\">→ Zobacz task w ClickUp</a>\n  </div>`;\n}).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;\">\n<div style=\"background:#e74c3c;color:white;padding:20px;border-radius:10px 10px 0 0;\">\n  <h2 style=\"margin:0;\">🔔 Alert Systemu - ${d.timeStr}</h2>\n  <p style=\"opacity:0.85;margin:5px 0 0;\">Hostessy | ${d.dataStr}</p>\n</div>\n<div style=\"background:white;padding:20px;border:1px solid #eee;\">\n  <div style=\"display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;\">\n    <div style=\"background:#e8f5e9;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:green;\">${d.stats.obecni}</b><br><small>Obecni</small>\n    </div>\n    <div style=\"background:#fce4ec;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:red;\">${d.stats.nieobecni}</b><br><small>Nieobecni</small>\n    </div>\n    <div style=\"background:#fff3e0;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:orange;\">${d.stats.spoznieni}</b><br><small>Spóźnieni</small>\n    </div>\n    <div style=\"background:#fce4ec;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:red;\">${d.liczbaAlertow}</b><br><small>Alertów</small>\n    </div>\n  </div>\n  <h3 style=\"color:#e74c3c;\">⚠️ Lista Problemów (${d.liczbaAlertow})</h3>\n  ${listaHTML}\n</div>\n<div style=\"background:#f8f9fa;padding:10px;text-align:center;border:1px solid #eee;border-radius:0 0 10px 10px;\">\n  <small style=\"color:#888;\">Automatyczny monitoring co 15 min | ${d.timeStr}</small>\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...d,\n    emailHTML: html,\n    emailSubject: `🔔 Alert Hostessy | ${d.liczbaAlertow} problemów | ${d.timeStr} | ${d.maPilne ? '🚨 PILNE' : ''}`\n  }\n}];\n"
+      },
+      "id": "d22e9ce5-d238-4ccf-8e63-27a0dbac3954",
+      "name": "BUDUJ - Email Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 13 * * *"
+            }
+          ]
+        }
+      },
+      "id": "130e3ed2-d2fd-4047-be18-855f60ae1b85",
+      "name": "SCHEDULER - 13:00 Raport Połówkowy",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1728,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 16 * * *"
+            }
+          ]
+        }
+      },
+      "id": "b6a16c14-7ce7-48d1-835e-4829511bb1ba",
+      "name": "SCHEDULER - 16:30 Raport Końcowy",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1728,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nreturn [{\n  json: {\n    typRaportu: 'polowkowy',\n    tytul: '☀️ Czas na Raport Połówkowy!',\n    deadline: '13:30',\n    webhookUrl: 'https://TWOJ-N8N.app/webhook/raport-polowkowy',\n    listId: '901522609104',\n    statusFiltr: ['ETAP 1-2', 'ETAP 3-4'],\n    sprawdzPole: 'Raport Połówkowy Oddany',\n    dataStr: now.toLocaleDateString('pl-PL'),\n    timeStr: '13:00',\n    zarzadEmail: 'autoleads@gmail.com',\n    mgrEmail: 'testautoleads@gmail.com',\n    sysEmail: 'testautoleads@gmail.com',\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "4f6e28bc-b525-4430-b70b-a0b8ce187e35",
+      "name": "SETUP - Raport Połówkowy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1504,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nreturn [{\n  json: {\n    typRaportu: 'koncowy',\n    tytul: '🌆 Czas na Raport Końcowy!',\n    deadline: '17:00',\n    webhookUrl: 'https://TWOJ-N8N.app/webhook/raport-koncowy',\n    listId: '901522609104',\n    statusFiltr: ['ETAP 1-2', 'ETAP 3-4', 'ETAP 5'],\n    sprawdzPole: 'Raport Końcowy Oddany',\n    dataStr: now.toLocaleDateString('pl-PL'),\n    timeStr: '16:30',\n    zarzadEmail: 'autoleads@gmail.com',\n    mgrEmail: 'testautoleads@gmail.com',\n    sysEmail: 'testautoleads@gmail.com',\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "5a150255-02ba-4009-bbcb-c4f5258ae6fc",
+      "name": "SETUP - Raport Końcowy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1504,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "false"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 1-2"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 3-4"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 5"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 6"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cb8d2cc3-13bc-4916-b064-cb2ad1c52a17",
+      "name": "CLICKUP - Pobierz Taski do Raportu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1280,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $input.first().json;\n\n// Sprawdź czy to dane z ClickUp czy config\n// Jeśli tasks istnieje to są to dane z ClickUp\nconst tasks = cfg.tasks || [];\n\n// Pobierz config z poprzedniego noda\nconst setupData = $('SETUP - Raport Połówkowy').item?.json || \n                  $('SETUP - Raport Końcowy').item?.json || {};\n\nconst bezRaportu = [];\n\ntasks.forEach(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => {\n    cf[f.name] = f.value;\n  });\n\n  const imie = task.name.split(' | ')[0];\n  const email = cf['Email Pracownika'] || setupData.mgrEmail;\n  const gPrzyjscia = cf['Godzina Przyjścia'] || cf['Godzina Przyjscia'];\n  \n  // Sprawdź czy raport oddany\n  const rapOddany = setupData.typRaportu === 'polowkowy'\n    ? (cf['Raport Połówkowy Oddany'] === true || cf['Raport Polowkowy Oddany'] === true)\n    : (cf['Raport Końcowy Oddany'] === true || cf['Raport Koncowy Oddany'] === true);\n\n  if (gPrzyjscia && !rapOddany) {\n    bezRaportu.push({\n      taskId: task.id,\n      taskUrl: task.url,\n      imie,\n      email,\n      gPrzyjscia\n    });\n  }\n});\n\nreturn bezRaportu.map(p => ({\n  json: {\n    ...setupData,\n    ...p,\n    lacznie: bezRaportu.length\n  }\n}));\n"
+      },
+      "id": "be3fac86-7862-4d22-89c2-14f1923ddb2e",
+      "name": "FILTRUJ - Kto Nie Oddał Raportu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1056,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.tytul }} - Deadline: {{ $json.deadline }}",
+        "options": {}
+      },
+      "id": "30aea43d-9656-406b-b4ed-f1cabf1818ec",
+      "name": "EMAIL - Przypomnienie do Pracownika",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        1200
+      ],
+      "webhookId": "69c12c42-13b8-4695-b37b-a933e79b756c"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Zbierz wszystkich bez raportu w jeden email do managera\nconst allItems = $input.all();\nif (allItems.length === 0) return [];\n\nconst cfg = allItems[0].json;\nconst lista = allItems.map(item => item.json);\n\nconst listaHTML = lista.map(p =>\n  `<tr>\n    <td style=\"padding:8px;border-bottom:1px solid #eee;\">${p.imie}</td>\n    <td style=\"padding:8px;border-bottom:1px solid #eee;\">${p.gPrzyjscia}</td>\n    <td style=\"padding:8px;border-bottom:1px solid #eee;\">\n      <a href=\"${p.taskUrl}\" style=\"color:#667eea;\">Zobacz task</a>\n    </td>\n  </tr>`\n).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial;max-width:600px;margin:0 auto;\">\n<div style=\"background:#e74c3c;color:white;padding:20px;border-radius:10px 10px 0 0;\">\n  <h2 style=\"margin:0;\">📋 Brak Raportów - Alert Managera</h2>\n  <p style=\"opacity:0.9;\">${cfg.typRaportu === 'polowkowy' ? 'Raport Połówkowy' : 'Raport Końcowy'} | ${cfg.dataStr} | ${cfg.timeStr}</p>\n</div>\n<div style=\"background:white;padding:20px;border:1px solid #eee;\">\n  <p><b>${lista.length} osób</b> nie oddało raportu:</p>\n  <table style=\"width:100%;border-collapse:collapse;\">\n    <thead>\n      <tr style=\"background:#f8f9fa;\">\n        <th style=\"padding:8px;text-align:left;\">Pracownik</th>\n        <th style=\"padding:8px;text-align:left;\">Godzina przyjścia</th>\n        <th style=\"padding:8px;text-align:left;\">Task</th>\n      </tr>\n    </thead>\n    <tbody>${listaHTML}</tbody>\n  </table>\n</div>\n<div style=\"background:#f8f9fa;padding:10px;text-align:center;border:1px solid #eee;border-radius:0 0 10px 10px;\">\n  <small style=\"color:#888;\">Auto-alert systemu | ${cfg.dataStr}</small>\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...cfg,\n    emailHTML: html,\n    emailSubject: `📋 BRAK RAPORTÓW | ${lista.length} osób | ${cfg.typRaportu === 'polowkowy' ? 'Połówkowy' : 'Końcowy'} | ${cfg.dataStr}`,\n    liczbaOsob: lista.length\n  }\n}];\n"
+      },
+      "id": "c4c5890e-a48a-4daa-8cfb-f7b79f3ff843",
+      "name": "BUDUJ - Email dla Managera i Zarządu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        1424
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "testautoleads@gmail.com",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "d59a595b-a947-4057-b3b7-19870d8473a2",
+      "name": "EMAIL - Alert Brak Raportu do Managera",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        1360
+      ],
+      "webhookId": "a812d25b-9b16-46db-8c1f-491c4e06dc13"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "autoleads@gmail.com",
+        "subject": "=🚨 ZARZĄD - {{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "48854184-e574-4c65-b9ca-e6a50c4e9a12",
+      "name": "EMAIL - Alert Brak Raportu do Zarządu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        1504
+      ],
+      "webhookId": "d5198d36-7b24-4dd5-b059-f863a94f0cdd"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 17 * * *"
+            }
+          ]
+        }
+      },
+      "id": "3890b6b3-df61-43c1-bcc6-858feee1c5ed",
+      "name": "SCHEDULER - 17:00 Raport Końcowy",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        1872
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nreturn [{\n  json: {\n    listId: '901522609104',\n    listRaportyCodzienne: '901522609089',\n    token: 'pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE',\n    zarzadEmail: 'autoleads@gmail.com',\n    mgrEmail: 'testautoleads@gmail.com',\n    sysEmail: 'testautoleads@gmail.com',\n    dataStr: now.toLocaleDateString('pl-PL'),\n    dataNazwa: now.toLocaleDateString('pl-PL', {\n      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'\n    }),\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "b843975a-fcce-4a80-8791-3db3b9231979",
+      "name": "SETUP - Konfiguracja Raportu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1536,
+        1872
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.clickup.com/api/v2/list/901522609104/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "true"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ZAKOŃCZONA"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 1-2"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 3-4"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 5"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 6"
+            },
+            {
+              "name": "statuses[]",
+              "value": "WYMAGA UWAGI"
+            },
+            {
+              "name": "statuses[]",
+              "value": "OCZEKUJE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6834b013-67d3-44f0-a44d-bce36d0535e5",
+      "name": "CLICKUP - Pobierz Wszystkie Taski",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1312,
+        1872
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('SETUP - Konfiguracja Raportu').item.json;\nconst tasks = $input.first().json.tasks || [];\n\nconst pracownicy = tasks.map(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => { cf[f.name] = f.value; });\n\n  const sp = parseInt(cf['Stan Początkowy'] || cf['Stan Poczatkowy'] || '0');\n  const sk = parseInt(cf['Stan Końcowy'] || cf['Stan Koncowy'] || cf['eb918b95-6861-4fe9-bdcf-d325b866042a'] || '0');\n  const s13 = parseInt(cf['Stan o 13:00'] || '0');\n  const rozdano = sk > 0 ? sp - sk : (s13 > 0 ? sp - s13 : 0);\n  const spoznMin = parseInt(cf['Spóźnienie (minuty)'] || cf['Spoznienie'] || '0');\n\n  return {\n    imie: task.name.split(' | ')[0],\n    status: task.status?.status || '—',\n    przybycie: cf['Godzina Przyjścia'] || cf['Godzina Przyjscia'] || '❌',\n    wyjscie: cf['Godzina Wyjścia'] || cf['Godzina Wyjscia'] || '—',\n    zarej: cf['Czy Zarejestrowana'] === true ? '✅' : '❌',\n    sp, s13: s13 || '—', sk: sk || '—',\n    rozdano,\n    spoznMin,\n    rapPol: (cf['Raport Połówkowy Oddany'] || cf['Raport Polowkowy Oddany']) ? '✅' : '❌',\n    rapKon: (cf['Raport Końcowy Oddany'] || cf['Raport Koncowy Oddany']) ? '✅' : '❌',\n    rapKonTresc: cf['Raport Końcowy'] || cf['Raport Koncowy'] || '',\n    rapPolTresc: cf['Raport Połówkowy'] || cf['Raport Polowkowy'] || '',\n    flaga: cf['Flaga Problemu'] || 'Brak problemów',\n    taskUrl: task.url\n  };\n});\n\nconst stats = {\n  lacznie: pracownicy.length,\n  obecni: pracownicy.filter(p => p.przybycie !== '❌').length,\n  nieobecni: pracownicy.filter(p => p.przybycie === '❌').length,\n  spoznieni: pracownicy.filter(p => p.spoznMin > 0).length,\n  rozdanoSum: pracownicy.reduce((s, p) => s + p.rozdano, 0),\n  rapPolOdd: pracownicy.filter(p => p.rapPol === '✅').length,\n  rapKonOdd: pracownicy.filter(p => p.rapKon === '✅').length,\n  zakonczone: pracownicy.filter(p => p.status === 'ZAKOŃCZONA').length,\n  srednia: pracownicy.length > 0\n    ? Math.round(pracownicy.reduce((s, p) => s + p.rozdano, 0) / Math.max(pracownicy.filter(p => p.przybycie !== '❌').length, 1))\n    : 0\n};\n\nconst problemy = {\n  bezRapKon: pracownicy.filter(p => p.rapKon === '❌' && p.przybycie !== '❌'),\n  nieobecni: pracownicy.filter(p => p.przybycie === '❌'),\n  spoznieni: pracownicy.filter(p => p.spoznMin > 0)\n};\n\nreturn [{\n  json: {\n    ...cfg,\n    pracownicy,\n    stats,\n    problemy,\n    maProblemy: problemy.bezRapKon.length > 0 || problemy.nieobecni.length > 0\n  }\n}];\n"
+      },
+      "id": "53d306f9-ea26-4305-9b88-79ecc1efd4ea",
+      "name": "ANALIZA - Statystyki Dnia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1104,
+        1872
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst { pracownicy, stats, problemy } = d;\n\nconst wiersze = pracownicy.map((p, i) => {\n  const bg = i % 2 === 0 ? '#f8f9fa' : 'white';\n  const flagaKolor = p.flaga === 'Brak problemów' ? 'green' :\n                     p.flaga.includes('Spóź') ? 'orange' : 'red';\n  return `<tr style=\"background:${bg};\">\n    <td style=\"padding:7px 10px;border:1px solid #dee2e6;font-weight:500;\">${p.imie}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.przybycie}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.wyjscie}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.zarej}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.sp}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.s13}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;font-weight:bold;color:#667eea;\">${p.rozdano}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.rapPol}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.rapKon}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;color:${flagaKolor};font-size:11px;font-weight:bold;\">${p.flaga}</td>\n  </tr>`;\n}).join('');\n\nconst problHTML = d.maProblemy ? `\n<div style=\"background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:15px;margin:15px 0;\">\n  <h3 style=\"color:#856404;margin:0 0 10px;\">⚠️ Problemy Dnia</h3>\n  ${problemy.bezRapKon.length > 0 ? `<p><b>Brak raportu końcowego:</b> ${problemy.bezRapKon.map(p => p.imie).join(', ')}</p>` : ''}\n  ${problemy.nieobecni.length > 0 ? `<p><b>Nieobecne bez zgłoszenia:</b> ${problemy.nieobecni.map(p => p.imie).join(', ')}</p>` : ''}\n  ${problemy.spoznieni.length > 0 ? `<p><b>Spóźnienia:</b> ${problemy.spoznieni.map(p => p.imie + ' (' + p.spoznMin + ' min)').join(', ')}</p>` : ''}\n</div>` : '<div style=\"background:#d4edda;border-radius:8px;padding:12px;margin:15px 0;\"><p style=\"color:#155724;margin:0;\">✅ Brak problemów - świetny dzień!</p></div>';\n\nconst raportyHTML = pracownicy.filter(p => p.rapKonTresc || p.rapPolTresc)\n  .map(p => `\n  <div style=\"background:#f8f9fa;padding:12px;border-radius:6px;margin:8px 0;border-left:3px solid #667eea;\">\n    <b>${p.imie}</b> <span style=\"color:${p.flaga === 'Brak problemów' ? 'green' : 'red'};font-size:12px;\">● ${p.flaga}</span>\n    ${p.rapPolTresc ? `<p style=\"margin:6px 0;font-size:13px;\"><em>13:00:</em> ${p.rapPolTresc}</p>` : ''}\n    ${p.rapKonTresc ? `<p style=\"margin:6px 0;font-size:13px;\"><em>Końcowy:</em> ${p.rapKonTresc}</p>` : ''}\n  </div>`).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial,sans-serif;max-width:950px;margin:0 auto;\">\n<div style=\"background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:28px;border-radius:12px 12px 0 0;\">\n  <h1 style=\"margin:0;font-size:26px;\">📊 Raport Końcowy Dnia - Hostessy</h1>\n  <p style=\"opacity:0.9;margin:6px 0 0;font-size:15px;\">Data: <b>${d.dataNazwa}</b></p>\n</div>\n<div style=\"background:white;padding:25px;border:1px solid #eee;\">\n  <h2 style=\"color:#444;border-bottom:2px solid #667eea;padding-bottom:8px;\">📈 Podsumowanie</h2>\n  <div style=\"display:flex;gap:12px;flex-wrap:wrap;margin:15px 0;\">\n    <div style=\"background:#e8f5e9;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:80px;\"><div style=\"font-size:26px;font-weight:bold;color:#2e7d32;\">${stats.obecni}</div><small>Obecnych</small></div>\n    <div style=\"background:#fce4ec;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:80px;\"><div style=\"font-size:26px;font-weight:bold;color:#c62828;\">${stats.nieobecni}</div><small>Nieobecnych</small></div>\n    <div style=\"background:#e3f2fd;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:80px;\"><div style=\"font-size:26px;font-weight:bold;color:#1565c0;\">${stats.rozdanoSum}</div><small>Rozdano łącznie</small></div>\n    <div style=\"background:#fff8e1;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:80px;\"><div style=\"font-size:26px;font-weight:bold;color:#e65100;\">${stats.srednia}</div><small>Średnia/osoba</small></div>\n    <div style=\"background:#f3e5f5;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:80px;\"><div style=\"font-size:26px;font-weight:bold;color:#6a1b9a;\">${stats.rapKonOdd}/${stats.lacznie}</div><small>Raporty końcowe</small></div>\n    <div style=\"background:#e0f2f1;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:80px;\"><div style=\"font-size:26px;font-weight:bold;color:#00695c;\">${stats.spoznieni}</div><small>Spóźnienia</small></div>\n  </div>\n  ${problHTML}\n  <h2 style=\"color:#444;border-bottom:2px solid #667eea;padding-bottom:8px;margin-top:20px;\">👥 Tabela Pracowników</h2>\n  <div style=\"overflow-x:auto;\">\n  <table style=\"width:100%;border-collapse:collapse;font-size:12px;\">\n    <thead><tr style=\"background:linear-gradient(135deg,#667eea,#764ba2);color:white;\">\n      <th style=\"padding:10px;text-align:left;\">Imię</th>\n      <th style=\"padding:10px;\">Przybycie</th>\n      <th style=\"padding:10px;\">Wyjście</th>\n      <th style=\"padding:10px;\">Rejestr.</th>\n      <th style=\"padding:10px;\">Stan P.</th>\n      <th style=\"padding:10px;\">13:00</th>\n      <th style=\"padding:10px;\">Rozdano</th>\n      <th style=\"padding:10px;\">Rap.Poł.</th>\n      <th style=\"padding:10px;\">Rap.Końc.</th>\n      <th style=\"padding:10px;\">Status</th>\n    </tr></thead>\n    <tbody>${wiersze}</tbody>\n  </table>\n  </div>\n  ${raportyHTML ? `<h2 style=\"color:#444;border-bottom:2px solid #667eea;padding-bottom:8px;margin-top:20px;\">📝 Raporty Pracowników</h2>${raportyHTML}` : ''}\n</div>\n<div style=\"background:#f8f9fa;padding:12px;text-align:center;border:1px solid #eee;border-radius:0 0 12px 12px;\">\n  <small style=\"color:#888;\">Automatyczny raport dzienny | ${new Date().toLocaleString('pl-PL')}</small>\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...d,\n    html,\n    subject: `📊 Raport Końcowy Hostessy - ${d.dataStr} | ${d.maProblemy ? '⚠️ PROBLEMY' : '✅ OK'} | Rozdano: ${stats.rozdanoSum} szt.`\n  }\n}];\n"
+      },
+      "id": "1ac573a4-1a12-478a-be94-8d9e6b7191de",
+      "name": "BUDUJ - HTML Raportu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        1872
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "testautoleads@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "options": {}
+      },
+      "id": "9c4d71e6-dcd2-4734-b0ff-794275aeb882",
+      "name": "EMAIL - Raport do Managera",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        -704,
+        1760
+      ],
+      "webhookId": "07b73511-dbc3-435f-bfe5-b1a658171cb9"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "autoleads@gmail.com",
+        "subject": "=📊 ZARZĄD - {{ $json.subject }}",
+        "options": {}
+      },
+      "id": "a065981f-dcb5-40fd-a684-7fb5f86b9199",
+      "name": "EMAIL - Raport do Zarządu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        -704,
+        1952
+      ],
+      "webhookId": "1659b29f-cf0b-437a-b0bc-7dd612692876"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.clickup.com/api/v2/list/901522609089/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "0680eb3d-e80e-40d2-a098-cad4d37b3aaf",
+      "name": "CLICKUP - Zapisz Raport w ClickUp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -704,
+        2128
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 20 28-31 * *"
+            }
+          ]
+        }
+      },
+      "id": "482ae59d-d39c-41af-a6bc-afa19cbdb933",
+      "name": "SCHEDULER - Ostatni Dzień Miesiąca 20:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        832,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sprawdź czy to ostatni dzień miesiąca\nconst now = new Date();\nconst jutro = new Date(now);\njutro.setDate(jutro.getDate() + 1);\nconst czyOstatniDzien = jutro.getDate() === 1;\n\nif (!czyOstatniDzien) {\n  return [{ json: { skip: true, info: 'Nie ostatni dzień miesiąca' } }];\n}\n\n// Oblicz zakres dat miesiąca\nconst rokAktualny = now.getFullYear();\nconst miesiacAktualny = now.getMonth();\n\nconst dataStart = new Date(rokAktualny, miesiacAktualny, 1);\nconst dataKoniec = new Date(rokAktualny, miesiacAktualny + 1, 0);\n\nconst formatData = (d) => d.toLocaleDateString('pl-PL', {\n  day: '2-digit', month: '2-digit', year: 'numeric'\n});\n\nconst nazwyMiesiecy = [\n  'Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',\n  'Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'\n];\n\nreturn [{\n  json: {\n    skip: false,\n    listId: '901522609104',\n    listRaporty: '901522609109',\n    listRaportyCodzienne: '901522609089',\n    token: 'pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE',\n    zarzadEmail: 'autoleads@gmail.com',\n    mgrEmail: 'testautoleads@gmail.com',\n    sysEmail: 'testautoleads@gmail.com',\n    miesiacNazwa: nazwyMiesiecy[miesiacAktualny],\n    rokAktualny,\n    dataStart: formatData(dataStart),\n    dataKoniec: formatData(dataKoniec),\n    dataStartMs: dataStart.getTime(),\n    dataKoniecMs: dataKoniec.getTime(),\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "20c1d65d-6437-49f1-9c3b-d63f2f0dce86",
+      "name": "SETUP - Sprawdź Ostatni Dzień Miesiąca",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c-skip",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "44faaf3d-ba67-4ab3-bfad-04ca19970bdf",
+      "name": "IF - Ostatni Dzień?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "true"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ZAKOŃCZONA"
+            },
+            {
+              "name": "statuses[]",
+              "value": "WYMAGA UWAGI"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 1-2"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 3-4"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 5"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 6"
+            },
+            {
+              "name": "order_by",
+              "value": "created"
+            },
+            {
+              "name": "reverse",
+              "value": "true"
+            },
+            {
+              "name": "page",
+              "value": "0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "787d24d5-6058-4918-8b90-14be0e425484",
+      "name": "CLICKUP - Pobierz Taski Miesiąca",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1488,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('SETUP - Sprawdź Ostatni Dzień Miesiąca').item.json;\nconst tasks = $input.first().json.tasks || [];\n\n// Filtruj tylko taski z tego miesiąca\nconst taskiMiesiaca = tasks.filter(t => {\n  const created = parseInt(t.date_created);\n  return created >= cfg.dataStartMs && created <= cfg.dataKoniecMs;\n});\n\n// Agreguj dane per pracownik\nconst pracownicyMap = {};\n\ntaskiMiesiaca.forEach(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => { cf[f.name] = f.value; });\n\n  const imie = task.name.split(' | ')[0];\n  const email = cf['Email Pracownika'] || cfg.mgrEmail;\n\n  if (!pracownicyMap[imie]) {\n    pracownicyMap[imie] = {\n      imie,\n      email,\n      dyżury: 0,\n      obecny: 0,\n      nieobecny: 0,\n      spoznieniaLacznie: 0,\n      spoznienieMinutyLacznie: 0,\n      rozdanoLacznie: 0,\n      rapPolOddane: 0,\n      rapKonOddane: 0,\n      ocenyDnia: [],\n      flagi: {}\n    };\n  }\n\n  const p = pracownicyMap[imie];\n  p.dyżury++;\n\n  const gPrzyjscia = cf['Godzina Przyjścia'] || cf['Godzina Przyjscia'];\n  if (gPrzyjscia) {\n    p.obecny++;\n  } else {\n    p.nieobecny++;\n  }\n\n  const spoznMin = parseInt(cf['Spóźnienie (minuty)'] || '0');\n  if (spoznMin > 0) {\n    p.spoznieniaLacznie++;\n    p.spoznienieMinutyLacznie += spoznMin;\n  }\n\n  const rozdano = parseInt(cf['Rozdano Łącznie'] || cf['Rozdano Lacznie'] || '0');\n  p.rozdanoLacznie += rozdano;\n\n  if (cf['Raport Połówkowy Oddany'] === true) p.rapPolOddane++;\n  if (cf['Raport Końcowy Oddany'] === true || cf['Raport Koncowy Oddany'] === true) p.rapKonOddane++;\n\n  const ocena = parseInt(cf['Ocena Dnia'] || '0');\n  if (ocena > 0) p.ocenyDnia.push(ocena);\n\n  const flaga = cf['Flaga Problemu'] || 'Brak problemów';\n  p.flagi[flaga] = (p.flagi[flaga] || 0) + 1;\n});\n\n// Przelicz statystyki\nconst pracownicy = Object.values(pracownicyMap).map(p => ({\n  ...p,\n  frekwencja: p.dyżury > 0 ? Math.round((p.obecny / p.dyżury) * 100) : 0,\n  sredniaSpoznienie: p.spoznieniaLacznie > 0\n    ? Math.round(p.spoznienieMinutyLacznie / p.spoznieniaLacznie)\n    : 0,\n  sredniOcena: p.ocenyDnia.length > 0\n    ? (p.ocenyDnia.reduce((a, b) => a + b, 0) / p.ocenyDnia.length).toFixed(1)\n    : '—',\n  rapPolProcent: p.obecny > 0 ? Math.round((p.rapPolOddane / p.obecny) * 100) : 0,\n  rapKonProcent: p.obecny > 0 ? Math.round((p.rapKonOddane / p.obecny) * 100) : 0\n}));\n\n// Sortuj po rozdano łącznie\npracownicy.sort((a, b) => b.rozdanoLacznie - a.rozdanoLacznie);\n\n// Statystyki globalne\nconst statsGlobalne = {\n  lacznie: pracownicy.length,\n  lacznieDyzury: taskiMiesiaca.length,\n  rozdanoSum: pracownicy.reduce((s, p) => s + p.rozdanoLacznie, 0),\n  spoznieniaSum: pracownicy.reduce((s, p) => s + p.spoznieniaLacznie, 0),\n  sredFrekwencja: pracownicy.length > 0\n    ? Math.round(pracownicy.reduce((s, p) => s + p.frekwencja, 0) / pracownicy.length)\n    : 0,\n  najlepszy: pracownicy.length > 0 ? pracownicy[0] : null,\n  najgorszy: pracownicy.length > 0 ? pracownicy[pracownicy.length - 1] : null\n};\n\nreturn [{\n  json: {\n    ...cfg,\n    pracownicy,\n    statsGlobalne,\n    liczbaDni: taskiMiesiaca.length\n  }\n}];\n"
+      },
+      "id": "00131bd1-9024-449e-917e-336dfbce63ac",
+      "name": "ANALIZA - Statystyki Miesięczne",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst { pracownicy, statsGlobalne } = d;\n\n// Tabela pracowników\nconst wiersze = pracownicy.map((p, i) => {\n  const bg = i % 2 === 0 ? '#f8f9fa' : 'white';\n  const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';\n  const frekKolor = p.frekwencja >= 90 ? 'green' : p.frekwencja >= 70 ? 'orange' : 'red';\n  const spoznKolor = p.spoznieniaLacznie === 0 ? 'green' : p.spoznieniaLacznie <= 2 ? 'orange' : 'red';\n  return `<tr style=\"background:${bg};\">\n    <td style=\"padding:8px 10px;border:1px solid #dee2e6;\">${medal} ${p.imie}</td>\n    <td style=\"padding:8px;border:1px solid #dee2e6;text-align:center;\">${p.dyżury}</td>\n    <td style=\"padding:8px;border:1px solid #dee2e6;text-align:center;color:${frekKolor};font-weight:bold;\">${p.frekwencja}%</td>\n    <td style=\"padding:8px;border:1px solid #dee2e6;text-align:center;color:${spoznKolor};\">${p.spoznieniaLacznie}x</td>\n    <td style=\"padding:8px;border:1px solid #dee2e6;text-align:center;\">${p.sredniaSpoznienie > 0 ? p.sredniaSpoznienie + ' min' : '—'}</td>\n    <td style=\"padding:8px;border:1px solid #dee2e6;text-align:center;font-weight:bold;color:#667eea;\">${p.rozdanoLacznie}</td>\n    <td style=\"padding:8px;border:1px solid #dee2e6;text-align:center;\">${p.rapPolProcent}%</td>\n    <td style=\"padding:8px;border:1px solid #dee2e6;text-align:center;\">${p.rapKonProcent}%</td>\n    <td style=\"padding:8px;border:1px solid #dee2e6;text-align:center;\">${p.sredniOcena}</td>\n  </tr>`;\n}).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial,sans-serif;max-width:1000px;margin:0 auto;\">\n<div style=\"background:linear-gradient(135deg,#1a1a2e,#16213e);color:white;padding:30px;border-radius:12px 12px 0 0;\">\n  <h1 style=\"margin:0;font-size:26px;\">📅 Raport Miesięczny - Hostessy</h1>\n  <p style=\"opacity:0.9;margin:6px 0 0;\">Okres: <b>${d.dataStart} - ${d.dataKoniec}</b> | ${d.miesiacNazwa} ${d.rokAktualny}</p>\n</div>\n<div style=\"background:white;padding:25px;border:1px solid #eee;\">\n\n  <h2 style=\"color:#444;border-bottom:2px solid #1a1a2e;padding-bottom:8px;\">📊 Podsumowanie Miesiąca</h2>\n  <div style=\"display:flex;gap:12px;flex-wrap:wrap;margin:15px 0;\">\n    <div style=\"background:#e3f2fd;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:100px;\">\n      <div style=\"font-size:28px;font-weight:bold;color:#1565c0;\">${statsGlobalne.lacznie}</div>\n      <small>Pracowników</small>\n    </div>\n    <div style=\"background:#e8f5e9;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:100px;\">\n      <div style=\"font-size:28px;font-weight:bold;color:#2e7d32;\">${statsGlobalne.lacznieDyzury}</div>\n      <small>Łącznie dyżurów</small>\n    </div>\n    <div style=\"background:#f3e5f5;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:100px;\">\n      <div style=\"font-size:28px;font-weight:bold;color:#6a1b9a;\">${statsGlobalne.rozdanoSum}</div>\n      <small>Rozdano łącznie</small>\n    </div>\n    <div style=\"background:#fff8e1;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:100px;\">\n      <div style=\"font-size:28px;font-weight:bold;color:#e65100;\">${statsGlobalne.sredFrekwencja}%</div>\n      <small>Śr. frekwencja</small>\n    </div>\n    <div style=\"background:#fce4ec;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:100px;\">\n      <div style=\"font-size:28px;font-weight:bold;color:#c62828;\">${statsGlobalne.spoznieniaSum}</div>\n      <small>Łącznie spóźnień</small>\n    </div>\n  </div>\n\n  ${statsGlobalne.najlepszy ? `\n  <div style=\"background:#e8f5e9;border:2px solid #27ae60;border-radius:8px;padding:15px;margin:15px 0;\">\n    <h3 style=\"color:#27ae60;margin:0 0 8px;\">🏆 Pracownik Miesiąca</h3>\n    <p style=\"margin:0;\"><b>${statsGlobalne.najlepszy.imie}</b> - Rozdano: ${statsGlobalne.najlepszy.rozdanoLacznie} szt. | Frekwencja: ${statsGlobalne.najlepszy.frekwencja}% | Spóźnienia: ${statsGlobalne.najlepszy.spoznieniaLacznie}x</p>\n  </div>` : ''}\n\n  <h2 style=\"color:#444;border-bottom:2px solid #1a1a2e;padding-bottom:8px;margin-top:25px;\">👥 Tabela Szczegółowa</h2>\n  <div style=\"overflow-x:auto;\">\n  <table style=\"width:100%;border-collapse:collapse;font-size:12px;\">\n    <thead><tr style=\"background:linear-gradient(135deg,#1a1a2e,#16213e);color:white;\">\n      <th style=\"padding:10px;text-align:left;\">Pracownik</th>\n      <th style=\"padding:10px;\">Dyżury</th>\n      <th style=\"padding:10px;\">Frekwencja</th>\n      <th style=\"padding:10px;\">Spóźnienia</th>\n      <th style=\"padding:10px;\">Śr. spóźn.</th>\n      <th style=\"padding:10px;\">Rozdano</th>\n      <th style=\"padding:10px;\">Rap.Poł.</th>\n      <th style=\"padding:10px;\">Rap.Końc.</th>\n      <th style=\"padding:10px;\">Ocena</th>\n    </tr></thead>\n    <tbody>${wiersze}</tbody>\n  </table>\n  </div>\n\n  <div style=\"background:#fff3cd;border-radius:8px;padding:15px;margin-top:20px;\">\n    <h3 style=\"color:#856404;margin:0 0 10px;\">📌 Osoby Wymagające Uwagi w Następnym Miesiącu</h3>\n    ${pracownicy.filter(p => p.spoznieniaLacznie >= 3 || p.frekwencja < 70)\n      .map(p => `<div style=\"padding:6px 0;border-bottom:1px solid #ffc107;\">\n        <b>${p.imie}</b>: ${p.spoznieniaLacznie >= 3 ? `⚠️ ${p.spoznieniaLacznie} spóźnienia ` : ''}${p.frekwencja < 70 ? `❌ Frekwencja ${p.frekwencja}%` : ''}\n      </div>`).join('') || '<p style=\"margin:0;color:green;\">✅ Brak osób wymagających uwagi</p>'}\n  </div>\n</div>\n<div style=\"background:#f8f9fa;padding:12px;text-align:center;border:1px solid #eee;border-radius:0 0 12px 12px;\">\n  <small style=\"color:#888;\">Miesięczny raport automatyczny | ${d.miesiacNazwa} ${d.rokAktualny}</small>\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...d,\n    html,\n    subject: `📅 Raport Miesięczny Hostessy - ${d.miesiacNazwa} ${d.rokAktualny} | Rozdano: ${statsGlobalne.rozdanoSum} szt.`\n  }\n}];\n"
+      },
+      "id": "f0b10472-e468-44db-9880-0e5bcda60dc7",
+      "name": "BUDUJ - HTML Raportu Miesięcznego",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "testautoleads@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "options": {}
+      },
+      "id": "befeefc3-ca7f-4c85-93ca-92612cbd9089",
+      "name": "EMAIL - Raport Miesięczny do Managera",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        480
+      ],
+      "webhookId": "6dfc6b0e-a450-43b8-8da1-0865eff35075"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "autoleads@gmail.com",
+        "subject": "=📅 ZARZĄD - {{ $json.subject }}",
+        "options": {}
+      },
+      "id": "d7fcfb9d-8de2-4b70-90b4-33a5aca4cb26",
+      "name": "EMAIL - Raport Miesięczny do Zarządu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        672
+      ],
+      "webhookId": "ff8ccd30-acfb-4f69-bc5a-28490ca36a8e"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.clickup.com/api/v2/list/901522609109/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "f275939d-23a5-4104-b25d-536927959c4c",
+      "name": "CLICKUP - Zapisz Raport Miesięczny",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2064,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "271bf886-ae41-40e2-8b68-85f56114ed5b",
+      "name": "SCHEDULER - 9:00 Status Poranny",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        384,
+        1264
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "26a30d81-1ed7-4ff4-9913-5ac202d14162",
+      "name": "SCHEDULER - 8:30 Brak Rejestracji",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        384,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 * * *"
+            }
+          ]
+        }
+      },
+      "id": "01b95fee-5556-4c5b-b12e-7c4bca9919d3",
+      "name": "SCHEDULER - 10:00 Alert Nieobecnych",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        384,
+        1664
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst godzina = now.getHours();\n\nlet typAlertu;\nif (godzina === 9)  typAlertu = 'status_poranny';\nif (godzina === 8)  typAlertu = 'brak_rejestracji';\nif (godzina === 10) typAlertu = 'nieobecni';\n\nreturn [{\n  json: {\n    typAlertu: typAlertu || 'nieznany',\n    listId: '901522609104',\n    listAlerty: '901522609082',\n    token: 'pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE',\n    zarzadEmail: 'autoleads@gmail.com',\n    mgrEmail: 'testautoleads@gmail.com',\n    sysEmail: 'testautoleads@gmail.com',\n    godzinaStart: '08:00',\n    dataStr: now.toLocaleDateString('pl-PL'),\n    timeStr: now.toLocaleTimeString('pl-PL', {hour: '2-digit', minute: '2-digit'}),\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "e1609ff6-2154-4548-841f-df0f01be948c",
+      "name": "SETUP - Typ Alertu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('SETUP - Typ Alertu').item.json;\nconst tasks = $input.first().json.tasks || [];\nconst typAlertu = cfg.typAlertu;\n\nconst [hS, mS] = cfg.godzinaStart.split(':').map(Number);\nconst startTotalMin = hS * 60 + mS;\n\nconst wyniki = {\n  typAlertu,\n  lacznie: tasks.length,\n  alertyLista: [],\n  statystyki: {}\n};\n\nconst obecni = [];\nconst nieobecni = [];\nconst niezarejestrowani = [];\nconst niskaIlosc = [];\nconst wymagaUwagi = [];\n\ntasks.forEach(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => { cf[f.name] = f.value; });\n\n  const imie = task.name.split(' | ')[0];\n  const email = cf['Email Pracownika'] || cfg.mgrEmail;\n  const gPrzyjscia = cf['Godzina Przyjścia'] || cf['Godzina Przyjscia'];\n  const czyZarej = cf['Czy Zarejestrowana'];\n  const stan = parseInt(cf['Stan o 13:00'] || cf['Stan Poczatkowy'] || cf['Stan Początkowy'] || '0');\n  const status = task.status?.status || '';\n\n  if (gPrzyjscia) {\n    obecni.push({ imie, email, taskId: task.id, taskUrl: task.url, gPrzyjscia });\n\n    if (!czyZarej) {\n      niezarejestrowani.push({ imie, email, taskId: task.id, taskUrl: task.url });\n    }\n  } else {\n    nieobecni.push({ imie, email, taskId: task.id, taskUrl: task.url });\n  }\n\n  if (stan > 0 && stan < 30) {\n    niskaIlosc.push({ imie, email, stan, taskId: task.id, taskUrl: task.url });\n  }\n\n  if (status === 'WYMAGA UWAGI') {\n    wymagaUwagi.push({ imie, email, taskId: task.id, taskUrl: task.url });\n  }\n});\n\nwyniki.statystyki = {\n  lacznie: tasks.length,\n  obecni: obecni.length,\n  nieobecni: nieobecni.length,\n  niezarejestrowani: niezarejestrowani.length,\n  niskaIlosc: niskaIlosc.length,\n  wymagaUwagi: wymagaUwagi.length\n};\n\n// Zbuduj alerty na podstawie typu\nif (typAlertu === 'brak_rejestracji' || typAlertu === 'status_poranny') {\n  niezarejestrowani.forEach(p => {\n    wyniki.alertyLista.push({\n      ikona: '📋',\n      imie: p.imie,\n      info: 'Nie zarejestrowała się',\n      pilne: false,\n      taskUrl: p.taskUrl,\n      email: p.email\n    });\n  });\n}\n\nif (typAlertu === 'nieobecni' || typAlertu === 'status_poranny') {\n  nieobecni.forEach(p => {\n    wyniki.alertyLista.push({\n      ikona: '❌',\n      imie: p.imie,\n      info: 'Nieobecna - brak rejestracji',\n      pilne: true,\n      taskUrl: p.taskUrl,\n      email: p.email\n    });\n  });\n}\n\nniskaIlosc.forEach(p => {\n  wyniki.alertyLista.push({\n    ikona: '🔴',\n    imie: p.imie,\n    info: `Niski stan produktu: ${p.stan} szt.`,\n    pilne: true,\n    taskUrl: p.taskUrl,\n    email: p.email\n  });\n});\n\nwymagaUwagi.forEach(p => {\n  wyniki.alertyLista.push({\n    ikona: '⚡',\n    imie: p.imie,\n    info: 'Status: Wymaga Uwagi',\n    pilne: false,\n    taskUrl: p.taskUrl,\n    email: p.email\n  });\n});\n\nreturn [{\n  json: {\n    ...cfg,\n    ...wyniki,\n    maAlerty: wyniki.alertyLista.length > 0,\n    maPilne: wyniki.alertyLista.some(a => a.pilne)\n  }\n}];\n"
+      },
+      "id": "958f5c0f-703c-4708-92f5-9ac98a4158fa",
+      "name": "ANALIZA - Sprawdź Alerty Ogólne",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\n\nconst tytuly = {\n  status_poranny: '🌅 Status Poranny',\n  brak_rejestracji: '📋 Alert: Brak Rejestracji',\n  nieobecni: '❌ Alert: Nieobecni Pracownicy'\n};\n\nconst tytul = tytuly[d.typAlertu] || '🔔 Alert Ogólny';\n\nconst listaHTML = d.alertyLista.map(a => `\n  <div style=\"background:${a.pilne ? '#f8d7da' : '#fff3cd'};padding:10px;border-radius:6px;margin:6px 0;border-left:4px solid ${a.pilne ? '#dc3545' : '#ffc107'};\">\n    <strong>${a.ikona} ${a.imie}</strong>${a.pilne ? ' <b style=\"color:red;\">PILNE!</b>' : ''}\n    <br><span style=\"font-size:13px;color:#555;\">${a.info}</span>\n    <br><a href=\"${a.taskUrl}\" style=\"font-size:12px;color:#667eea;\">→ Otwórz task</a>\n  </div>`).join('');\n\nconst statHTML = `\n  <div style=\"display:flex;gap:10px;flex-wrap:wrap;margin:15px 0;\">\n    <div style=\"background:#e8f5e9;padding:10px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:20px;color:green;\">${d.statystyki.obecni}</b><br><small>Obecni</small>\n    </div>\n    <div style=\"background:#fce4ec;padding:10px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:20px;color:red;\">${d.statystyki.nieobecni}</b><br><small>Nieobecni</small>\n    </div>\n    <div style=\"background:#fff3e0;padding:10px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:20px;color:orange;\">${d.statystyki.niezarejestrowani}</b><br><small>Bez rejestracji</small>\n    </div>\n    <div style=\"background:#fce4ec;padding:10px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:20px;color:red;\">${d.statystyki.niskaIlosc}</b><br><small>Niski stan</small>\n    </div>\n  </div>`;\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial;max-width:580px;margin:0 auto;\">\n<div style=\"background:${d.maPilne ? '#c0392b' : '#e67e22'};color:white;padding:20px;border-radius:10px 10px 0 0;\">\n  <h2 style=\"margin:0;\">${tytul}</h2>\n  <p style=\"opacity:0.9;margin:5px 0 0;\">${d.dataStr} | ${d.timeStr} | Hostessy</p>\n</div>\n<div style=\"background:white;padding:20px;border:1px solid #eee;\">\n  ${statHTML}\n  <h3 style=\"color:${d.maPilne ? '#c0392b' : '#e67e22'};\">Alerty (${d.alertyLista.length})</h3>\n  ${listaHTML}\n</div>\n<div style=\"background:#f8f9fa;padding:10px;text-align:center;border:1px solid #eee;border-radius:0 0 10px 10px;\">\n  <small style=\"color:#888;\">Automatyczny alert | ${d.timeStr}</small>\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...d,\n    emailHTML: html,\n    emailTytul: tytul,\n    emailSubject: `${tytul} | ${d.alertyLista.length} alertów | ${d.dataStr} ${d.maPilne ? '| 🚨 PILNE' : ''}`\n  }\n}];\n"
+      },
+      "id": "e445de25-a002-4c61-967f-4690f1fa7028",
+      "name": "BUDUJ - Email Alert Ogólny",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        1376
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "testautoleads@gmail.com",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "e455384d-e68f-4fbe-9d29-27a838061488",
+      "name": "EMAIL - Alert Ogólny do Managera",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        1376
+      ],
+      "webhookId": "cb05d7ca-2a23-432b-b962-c1b8619c70ca"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "autoleads@gmail.com",
+        "subject": "=🚨 ZARZĄD - {{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "ff1ea694-8ae3-4ab1-a150-f057962ef92a",
+      "name": "EMAIL - Alert Pilny do Zarządu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        1584
+      ],
+      "webhookId": "90c20929-4c47-49c4-9b89-2179c9848766"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.clickup.com/api/v2/list/901522609082/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "4d4caa59-2cc4-4135-b0e1-a5541d914435",
+      "name": "CLICKUP - Zapisz Alert w Liście Alertów",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1648,
+        1216
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "false"
+            },
+            {
+              "name": "statuses[]",
+              "value": "OCZEKUJE"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 1-2"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 3-4"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 5"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 6"
+            },
+            {
+              "name": "statuses[]",
+              "value": "WYMAGA UWAGI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "94b08e0a-cdc2-4bb3-a2eb-ea7e4bc4331a",
+      "name": "CLICKUP - Pobierz Aktywne Taski1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        816,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c-ma",
+              "leftValue": "={{ $json.maAlerty }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "80903497-f62b-40d2-b24f-2250bc43e397",
+      "name": "IF - Są Alerty?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c-pilne-a",
+              "leftValue": "={{ $json.maPilne }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c749430d-01d6-4cca-bbae-8cd21caca10d",
+      "name": "IF - Pilne do Zarządu?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        1584
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 14 * * *"
+            }
+          ]
+        }
+      },
+      "id": "df60b234-7538-4664-9323-cb07fa1cfafe",
+      "name": "SCHEDULER - 14:00 Brak Raportu Połówkowego",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        336,
+        2080
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 18 * * *"
+            }
+          ]
+        }
+      },
+      "id": "134e6c59-3fac-4a8c-98e4-5f26ae2050ea",
+      "name": "SCHEDULER - 18:00 Brak Raportu Końcowego",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        336,
+        2368
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst godzina = now.getHours();\n\nconst typSprawdzenia = godzina >= 18 ? 'koncowy' : 'polowkowy';\n\nreturn [{\n  json: {\n    typSprawdzenia,\n    listId: '901522609104',\n    listAlerty: '901522609082',\n    token: 'pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE',\n    zarzadEmail: 'autoleads@gmail.com',\n    mgrEmail: 'testautoleads@gmail.com',\n    sysEmail: 'testautoleads@gmail.com',\n    dataStr: now.toLocaleDateString('pl-PL'),\n    timeStr: now.toLocaleTimeString('pl-PL', {hour: '2-digit', minute: '2-digit'}),\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "8eea5327-2cd1-44d6-8488-7be553545da0",
+      "name": "SETUP - Typ Sprawdzenia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        2224
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "true"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 1-2"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 3-4"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 5"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 6"
+            },
+            {
+              "name": "statuses[]",
+              "value": "WYMAGA UWAGI"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ZAKOŃCZONA"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7836ab8e-8f1d-4571-9014-69ac7656d69f",
+      "name": "CLICKUP - Pobierz Wszystkie Taski Dnia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        768,
+        2224
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('SETUP - Typ Sprawdzenia').item.json;\nconst tasks = $input.first().json.tasks || [];\nconst typ = cfg.typSprawdzenia;\n\nconst obecni = [];\nconst bezRaportu = [];\nconst zRaportem = [];\nconst nieobecni = [];\n\ntasks.forEach(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => { cf[f.name] = f.value; });\n\n  const imie = task.name.split(' | ')[0];\n  const email = cf['Email Pracownika'] || cfg.mgrEmail;\n  const gPrzyjscia = cf['Godzina Przyjścia'] || cf['Godzina Przyjscia'];\n\n  // Sprawdź odpowiedni raport\n  let rapOddany;\n  let rapTresc;\n\n  if (typ === 'polowkowy') {\n    rapOddany = cf['Raport Połówkowy Oddany'] === true ||\n                cf['Raport Polowkowy Oddany'] === true;\n    rapTresc = cf['Raport Połówkowy'] || cf['Raport Polowkowy'] || '';\n  } else {\n    rapOddany = cf['Raport Końcowy Oddany'] === true ||\n                cf['Raport Koncowy Oddany'] === true;\n    rapTresc = cf['Raport Końcowy'] || cf['Raport Koncowy'] || '';\n  }\n\n  if (!gPrzyjscia) {\n    nieobecni.push(imie);\n    return;\n  }\n\n  obecni.push({ imie, email, taskId: task.id, taskUrl: task.url });\n\n  if (rapOddany || rapTresc) {\n    zRaportem.push(imie);\n  } else {\n    bezRaportu.push({\n      imie,\n      email,\n      taskId: task.id,\n      taskUrl: task.url,\n      gPrzyjscia\n    });\n  }\n});\n\nconst procent = obecni.length > 0\n  ? Math.round((zRaportem.length / obecni.length) * 100)\n  : 0;\n\nconst maProblemy = bezRaportu.length > 0;\nconst krytyczne = bezRaportu.length > (obecni.length * 0.3); // >30% bez raportu\n\nreturn [{\n  json: {\n    ...cfg,\n    obecni: obecni.length,\n    nieobecni: nieobecni.length,\n    zRaportem: zRaportem.length,\n    bezRaportu,\n    liczbaBezRaportu: bezRaportu.length,\n    procent,\n    maProblemy,\n    krytyczne,\n    zRaportNazwy: zRaportem,\n    nieobecniNazwy: nieobecni\n  }\n}];\n"
+      },
+      "id": "35442283-171a-4968-a5fb-29ed77931162",
+      "name": "ANALIZA - Kto Nie Oddał Raportu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        2224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c-prob-z",
+              "leftValue": "={{ $json.maProblemy }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "852c29c7-a99b-4a60-8814-04e39f6ce32b",
+      "name": "IF - Są Brakujące Raporty?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        2224
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst nazwaRaportu = d.typSprawdzenia === 'polowkowy' ? 'Połówkowy (13:00)' : 'Końcowy';\nconst ikona = d.typSprawdzenia === 'polowkowy' ? '☀️' : '🌆';\nconst kolorGlowny = d.krytyczne ? '#c0392b' : '#e67e22';\n\nconst listaOsobHTML = d.bezRaportu.map((p, i) => `\n  <tr style=\"background:${i % 2 === 0 ? '#f8f9fa' : 'white'}\">\n    <td style=\"padding:8px 12px;border:1px solid #dee2e6;font-weight:500;\">${p.imie}</td>\n    <td style=\"padding:8px;border:1px solid #dee2e6;text-align:center;\">${p.gPrzyjscia}</td>\n    <td style=\"padding:8px;border:1px solid #dee2e6;text-align:center;\">\n      <a href=\"${p.taskUrl}\" style=\"color:#667eea;font-size:12px;\">Otwórz task →</a>\n    </td>\n  </tr>`).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial,sans-serif;max-width:650px;margin:0 auto;\">\n<div style=\"background:${kolorGlowny};color:white;padding:25px;border-radius:12px 12px 0 0;\">\n  <h1 style=\"margin:0;font-size:22px;\">${ikona} Alert Zarządu: Brak Raportów ${nazwaRaportu}</h1>\n  <p style=\"opacity:0.9;margin:6px 0 0;\">Data: ${d.dataStr} | Godzina: ${d.timeStr}</p>\n</div>\n<div style=\"background:white;padding:25px;border:1px solid #eee;\">\n\n  <div style=\"display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;\">\n    <div style=\"background:#e8f5e9;padding:15px;border-radius:8px;text-align:center;flex:1;\">\n      <div style=\"font-size:26px;font-weight:bold;color:green;\">${d.zRaportem}</div>\n      <small>Oddało raport</small>\n    </div>\n    <div style=\"background:#f8d7da;padding:15px;border-radius:8px;text-align:center;flex:1;\">\n      <div style=\"font-size:26px;font-weight:bold;color:red;\">${d.liczbaBezRaportu}</div>\n      <small>NIE oddało</small>\n    </div>\n    <div style=\"background:#e3f2fd;padding:15px;border-radius:8px;text-align:center;flex:1;\">\n      <div style=\"font-size:26px;font-weight:bold;color:#1565c0;\">${d.procent}%</div>\n      <small>Kompletność</small>\n    </div>\n    <div style=\"background:#fce4ec;padding:15px;border-radius:8px;text-align:center;flex:1;\">\n      <div style=\"font-size:26px;font-weight:bold;color:#c62828;\">${d.nieobecni}</div>\n      <small>Nieobecnych</small>\n    </div>\n  </div>\n\n  ${d.krytyczne ? `<div style=\"background:#f8d7da;border:2px solid #c0392b;border-radius:8px;padding:12px;margin-bottom:15px;\">\n    <p style=\"margin:0;color:#c0392b;font-weight:bold;\">🚨 UWAGA: Ponad 30% pracowników nie oddało raportu! Wymagana natychmiastowa interwencja!</p>\n  </div>` : ''}\n\n  <h3 style=\"color:${kolorGlowny};\">Osoby bez raportu ${nazwaRaportu} (${d.liczbaBezRaportu}):</h3>\n  <table style=\"width:100%;border-collapse:collapse;font-size:13px;\">\n    <thead>\n      <tr style=\"background:${kolorGlowny};color:white;\">\n        <th style=\"padding:10px;text-align:left;\">Pracownik</th>\n        <th style=\"padding:10px;\">Godzina przyjścia</th>\n        <th style=\"padding:10px;\">Akcja</th>\n      </tr>\n    </thead>\n    <tbody>${listaOsobHTML}</tbody>\n  </table>\n\n  <div style=\"background:#d1ecf1;border-radius:8px;padding:12px;margin-top:15px;\">\n    <p style=\"margin:0;font-size:13px;color:#0c5460;\">\n      ✅ Raporty oddane: <b>${d.zRaportNazwy.join(', ') || 'Brak'}</b>\n    </p>\n  </div>\n\n  <div style=\"text-align:center;margin-top:20px;\">\n    <p style=\"color:#666;font-size:13px;margin:0;\">Co zrobić:</p>\n    <p style=\"color:#666;font-size:13px;\">1. Skontaktuj się z managerem zespołu<br>2. Manager dzwoni do pracowników<br>3. Aktualizuj status w ClickUp</p>\n  </div>\n</div>\n<div style=\"background:#f8f9fa;padding:12px;text-align:center;border:1px solid #eee;border-radius:0 0 12px 12px;\">\n  <small style=\"color:#888;\">Automatyczny alert systemu | ${new Date().toLocaleString('pl-PL')}</small>\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...d,\n    emailHTML: html,\n    emailSubject: `${d.krytyczne ? '🚨' : '⚠️'} ZARZĄD: ${d.liczbaBezRaportu} osób bez raportu ${nazwaRaportu} | ${d.procent}% kompletności | ${d.dataStr}`\n  }\n}];\n"
+      },
+      "id": "98102bdd-9c8c-4b02-823d-050bbf04a799",
+      "name": "BUDUJ - Email Alert Zarządu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        2128
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "autoleads@gmail.com",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "e55d6292-e94e-4ab3-9fc0-f8a0ac1ea135",
+      "name": "EMAIL - Alert do Zarządu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        2016
+      ],
+      "webhookId": "af786c04-5750-4ee1-9373-60f6d73c63a8"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Wyślij indywidualne przypomnienia do osób bez raportu\nconst d = $input.first().json;\nreturn d.bezRaportu.map(p => ({\n  json: {\n    email: p.email,\n    imie: p.imie,\n    taskUrl: p.taskUrl,\n    taskId: p.taskId,\n    typSprawdzenia: d.typSprawdzenia,\n    sysEmail: d.sysEmail,\n    dataStr: d.dataStr\n  }\n}));\n"
+      },
+      "id": "d789c153-d7de-488e-9064-6ca3f916406b",
+      "name": "PRZYGOTUJ - Indywidualne Przypomnienia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        2368
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=⚠️ OSTATNIE PRZYPOMNIENIE - {{ $json.typSprawdzenia === 'polowkowy' ? 'Raport Połówkowy' : 'Raport Końcowy' }} | {{ $json.dataStr }}",
+        "options": {}
+      },
+      "id": "6fde1a7b-bddc-4df0-a009-c566e81fb28a",
+      "name": "EMAIL - Ostatnie Przypomnienie do Pracownika",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        2432
+      ],
+      "webhookId": "eea4da5f-e107-44d5-b1f1-3ebeaff4266e"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.taskId }}/comment",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "a991f4f6-1fab-46be-9cc1-271b6d69a596",
+      "name": "CLICKUP - Komentarz Alert w Tasku",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1792,
+        2432
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "testautoleads@gmail.com",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "ea21c0ad-345b-43e5-97be-b9d57d79f9e4",
+      "name": "EMAIL - Alert do Managera1",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        2224
+      ],
+      "webhookId": "c5915428-2a1b-4c4f-ae99-316966a8b811"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "team": "90152423592",
+        "space": "901510700896",
+        "folderless": true,
+        "list": "=901522609104",
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        -1232,
+        784
+      ],
+      "id": "93be7307-38d5-4a88-88bf-5f354f905e1d",
+      "name": "Get many tasks",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "testautoleads@gmail.com",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "9aaec32f-cc1c-47f5-92e4-f0150bd284a5",
+      "name": "EMAIL - Alert do Managera",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        1152
+      ],
+      "webhookId": "ec25d3b8-2ceb-435b-9947-fa04dcc734fd",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('BUDUJ - Email Alert').item.json.zarzadEmail }}",
+        "subject": "={{ $('BUDUJ - Email Alert').item.json.emailSubject }}",
+        "message": "={{ $('BUDUJ - Email Alert').item.json.emailHTML }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        672
+      ],
+      "id": "99a3ffb6-899c-42fc-9815-adf68d561cb7",
+      "name": "Send a message",
+      "webhookId": "c6f1df06-bbcd-47ea-804b-39b1d37e7ac5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "UZClcStQjFuAT5TN",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "WEBHOOK - Rejestracja": {
+      "main": [
+        [
+          {
+            "node": "WALIDACJA - Dane i Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WALIDACJA - Dane i Config": {
+      "main": [
+        [
+          {
+            "node": "IF - Dane OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Dane OK?": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Utwórz Task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RESPONSE - Błąd",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Utwórz Task": {
+      "main": [
+        [
+          {
+            "node": "ZAPISZ - Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ZAPISZ - Task ID": {
+      "main": [
+        [
+          {
+            "node": "PRZYGOTUJ - Lista Pól do Aktualizacji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PRZYGOTUJ - Lista Pól do Aktualizacji": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Aktualizuj Pole",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Aktualizuj Pole": {
+      "main": [
+        [
+          {
+            "node": "IF - Spóźnienie?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Spóźnienie?": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Ustaw Status Wymaga Uwagi",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CLICKUP - Komentarz Spóźnienie",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EMAIL - Alert Spóźnienie do Managera",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EMAIL - Powitalny do Pracownika",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EMAIL - Alert Spóźnienie do Managera": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Powitalny do Pracownika",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EMAIL - Powitalny do Pracownika": {
+      "main": [
+        [
+          {
+            "node": "RESPONSE - Sukces",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - Co 15 min (6:00-17:00)": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Konfiguracja",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Konfiguracja": {
+      "main": [
+        [
+          {
+            "node": "Get many tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Aktywne Taski": {
+      "main": [
+        []
+      ]
+    },
+    "ANALIZA - Sprawdź Problemy": {
+      "main": [
+        [
+          {
+            "node": "IF - Są Alerty?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Są Alerty?": {
+      "main": [
+        [
+          {
+            "node": "BUDUJ - Email Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - Email Alert": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - 13:00 Raport Połówkowy": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Raport Połówkowy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - 16:30 Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Raport Końcowy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Raport Połówkowy": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Taski do Raportu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Taski do Raportu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Taski do Raportu": {
+      "main": [
+        [
+          {
+            "node": "FILTRUJ - Kto Nie Oddał Raportu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FILTRUJ - Kto Nie Oddał Raportu": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Przypomnienie do Pracownika",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "BUDUJ - Email dla Managera i Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - Email dla Managera i Zarządu": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Alert Brak Raportu do Managera",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EMAIL - Alert Brak Raportu do Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - 17:00 Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Konfiguracja Raportu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Konfiguracja Raportu": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Wszystkie Taski",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Wszystkie Taski": {
+      "main": [
+        [
+          {
+            "node": "ANALIZA - Statystyki Dnia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ANALIZA - Statystyki Dnia": {
+      "main": [
+        [
+          {
+            "node": "BUDUJ - HTML Raportu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - HTML Raportu": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Raport do Managera",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EMAIL - Raport do Zarządu",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CLICKUP - Zapisz Raport w ClickUp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - Ostatni Dzień Miesiąca 20:00": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Sprawdź Ostatni Dzień Miesiąca",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Sprawdź Ostatni Dzień Miesiąca": {
+      "main": [
+        [
+          {
+            "node": "IF - Ostatni Dzień?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Ostatni Dzień?": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Taski Miesiąca",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Taski Miesiąca": {
+      "main": [
+        [
+          {
+            "node": "ANALIZA - Statystyki Miesięczne",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ANALIZA - Statystyki Miesięczne": {
+      "main": [
+        [
+          {
+            "node": "BUDUJ - HTML Raportu Miesięcznego",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - HTML Raportu Miesięcznego": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Raport Miesięczny do Managera",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EMAIL - Raport Miesięczny do Zarządu",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CLICKUP - Zapisz Raport Miesięczny",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - 9:00 Status Poranny": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Typ Alertu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - 8:30 Brak Rejestracji": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Typ Alertu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - 10:00 Alert Nieobecnych": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Typ Alertu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Typ Alertu": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Aktywne Taski1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ANALIZA - Sprawdź Alerty Ogólne": {
+      "main": [
+        [
+          {
+            "node": "IF - Są Alerty?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - Email Alert Ogólny": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Alert Ogólny do Managera",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CLICKUP - Zapisz Alert w Liście Alertów",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Aktywne Taski1": {
+      "main": [
+        [
+          {
+            "node": "ANALIZA - Sprawdź Alerty Ogólne",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Są Alerty?1": {
+      "main": [
+        [
+          {
+            "node": "BUDUJ - Email Alert Ogólny",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF - Pilne do Zarządu?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Pilne do Zarządu?1": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Alert Pilny do Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - 14:00 Brak Raportu Połówkowego": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Typ Sprawdzenia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - 18:00 Brak Raportu Końcowego": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Typ Sprawdzenia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Typ Sprawdzenia": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Wszystkie Taski Dnia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Wszystkie Taski Dnia": {
+      "main": [
+        [
+          {
+            "node": "ANALIZA - Kto Nie Oddał Raportu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ANALIZA - Kto Nie Oddał Raportu": {
+      "main": [
+        [
+          {
+            "node": "IF - Są Brakujące Raporty?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Są Brakujące Raporty?": {
+      "main": [
+        [
+          {
+            "node": "BUDUJ - Email Alert Zarządu",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "PRZYGOTUJ - Indywidualne Przypomnienia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - Email Alert Zarządu": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Alert do Zarządu",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EMAIL - Alert do Managera1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PRZYGOTUJ - Indywidualne Przypomnienia": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Ostatnie Przypomnienie do Pracownika",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EMAIL - Ostatnie Przypomnienie do Pracownika": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Komentarz Alert w Tasku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many tasks": {
+      "main": [
+        [
+          {
+            "node": "ANALIZA - Sprawdź Problemy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EMAIL - Alert do Managera": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "f747155f-4eca-4911-9b33-b30416433fa7",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-07T16:24:49.042Z",
+      "createdAt": "2026-04-07T16:24:49.042Z",
+      "role": "workflow:owner",
+      "workflowId": "5LBfyjZCpwoWxfuA",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
