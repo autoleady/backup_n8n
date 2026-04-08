@@ -1,0 +1,517 @@
+{
+  "updatedAt": "2026-04-04T10:12:34.409Z",
+  "createdAt": "2026-04-04T10:12:33.806Z",
+  "id": "Hcr2xjmpkbrJMCaJ",
+  "name": "My workflow 8",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "get",
+        "id": "={{ $json.task_id }}",
+        "includeSubtasks": true,
+        "includeMarkdownDescription": true
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        336,
+        0
+      ],
+      "id": "25323f90-3a0d-4ea2-b070-5fc77fb4e046",
+      "name": "Get a task",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "25f35b29-ec7c-4e74-a3e0-36df1eabab5b",
+              "leftValue": "={{ $json.history_items[0].after.status }}",
+              "rightValue": "gotowe do wystawienia",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        176,
+        0
+      ],
+      "id": "4725901f-7a14-48c6-ae1c-d63942405797",
+      "name": "Filter1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://olaf2209070.fakturownia.pl/invoices.json?api_token=-IVLXVQbg-wpJq6KbWkV",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        688,
+        0
+      ],
+      "id": "009a4ae6-ccb0-4044-9424-35110bb3da27",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===============================\n// POBRANIE DANYCH Z CLICKUP\n// ===============================\n\nconst fields = $json.custom_fields || [];\n\nconst getField = (name) => {\n  return fields.find(f => f.name === name)?.value ?? null;\n};\n\nconst getFieldById = (id) => {\n  return fields.find(f => f.id === id)?.value ?? null;\n};\n\n\n// ===============================\n// BEZPIECZNA FUNKCJA DATY\n// ===============================\n\nconst formatDateSafe = (value) => {\n  const today = new Date().toISOString().split('T')[0];\n\n  if (!value) return today;\n\n  if (!isNaN(value)) {\n    return new Date(Number(value)).toISOString().split('T')[0];\n  }\n\n  if (typeof value === 'string' && value.includes('-')) {\n    return value;\n  }\n\n  if (typeof value === 'string' && value.includes('/')) {\n    const parts = value.split('/');\n    return `${parts[2]}-${parts[1]}-${parts[0]}`;\n  }\n\n  return today;\n};\n\n\n// ===============================\n// DATY\n// ===============================\n\nconst issueDate = formatDateSafe(getField('Data wystawienia'));\n\nconst paymentDate = formatDateSafe(\n  getFieldById('1abcd4d2-06e2-458f-b283-b8d5039720ad')\n);\n\n// ===============================\n// WIELE POZYCJI – CZYTANIE PO ID\n// ===============================\n\nlet positions = [];\n\nconst positionField = fields.find(\n  f => f.id === '391f43f9-a4bc-435e-b9f1-16c273c4b98e'\n);\n\nlet rawPositions = null;\n\nif (positionField) {\n  rawPositions = positionField.value || positionField.value_richtext || null;\n}\n\n// DEBUG – możesz chwilowo sprawdzić co przychodzi\n// return [{ json: { rawPositions } }];\n\nif (rawPositions && typeof rawPositions === 'string') {\n\n  const cleanedText = rawPositions.replace(/<[^>]*>/g, '');\n  const rows = cleanedText.split('\\n');\n\n  rows.forEach(row => {\n\n    if (!row.trim()) return;\n\n    const parts = row.split('|').map(p => p.trim());\n\n    if (parts.length >= 4) {\n\n      const name = parts[0] || \"Usługa\";\n      const quantity = Number(parts[1]) > 0 ? Number(parts[1]) : 1;\n      const totalPrice = Number(parts[2]) > 0 ? Number(parts[2]) : 0;\n\n      let vatRaw = parts[3];\n      let vat = 23;\n\n      if (vatRaw.includes('%')) {\n        vat = Number(vatRaw.replace('%', '').trim());\n      } else if (!isNaN(vatRaw)) {\n        vat = Number(vatRaw);\n      }\n\n      positions.push({\n        name: name,\n        quantity: quantity,\n        total_price_gross: totalPrice,\n        tax: vat\n      });\n    }\n\n  });\n}\n\n\n// ===============================\n// FALLBACK\n// ===============================\n\nif (positions.length === 0) {\n  positions.push({\n    name: \"Usługa\",\n    quantity: 1,\n    total_price_gross: 100,\n    tax: 23\n  });\n}\n// ===============================\n// ZWRACAMY OBIEKT DLA FAKTUROWNI\n// ===============================\n\nreturn [\n  {\n    json: {\n      invoice: {\n        kind: \"vat\",\n        status: \"issued\",\n\n        issue_date: issueDate,\n        sell_date: issueDate,\n        payment_to: paymentDate,\n        payment_type: \"transfer\",\n\n        buyer_name: getField('Nazwa firmy') || \"Brak nazwy\",\n        buyer_email: getField('email') || \"brak@email.pl\",\n        buyer_tax_no: getField('NIP') || \"0000000000\",\n        buyer_city: getField('Miasto') || \"Miasto\",\n        buyer_post_code: getField('Kod pocztowy') || \"00-000\",\n\n        positions: positions,\n\n        description: \"Zamówienie z formularza ClickUp\"\n      }\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        0
+      ],
+      "id": "1d6d36ed-656b-4405-86fd-24bebbaf3c91",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "team": "90152423592",
+        "events": [
+          "taskUpdated"
+        ],
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUpTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "aaebbe2a-69ee-4313-8281-53b0140b24b5",
+      "name": "ClickUp Trigger",
+      "webhookId": "2ae7c5ec-055c-40fe-94e7-352bbd532347"
+    },
+    {
+      "parameters": {
+        "url": "=https://olaf2209070.fakturownia.pl/invoices/{{$json.id}}.pdf?api_token=-IVLXVQbg-wpJq6KbWkV ",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        896,
+        0
+      ],
+      "id": "6025d62b-8077-47f4-aab8-49539ce3d865",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Get a task').item.json.custom_fields[10].value }}",
+        "subject": "Faktura",
+        "message": "=<div style=\"font-family: Arial, sans-serif; font-size: 14px; color: #333;\">\n\n  <p>Dzień dobry,</p>\n\n  <p>\n    W załączniku przesyłamy fakturę \n    <strong>{{ $json.number }}</strong>.\n  </p>\n\n  <p>\n    Termin płatności: \n    <strong>{{ $json.payment_to }}</strong>\n  </p>\n\n  <p>\n    Kwota do zapłaty: \n    <strong>{{ $json.price_gross }} zł</strong>\n  </p>\n\n  <br>\n\n  <p>\n    W razie pytań prosimy o kontakt.\n  </p>\n\n  <br>\n\n  <p>\n    Z poważaniem,<br>\n    <strong>Twoja Firma</strong><br>\n    tel. 000 000 000<br>\n    email: biuro@twojafirma.pl\n  </p>\n\n</div>",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1104,
+        0
+      ],
+      "id": "9c6711eb-04a0-41ee-86bc-c7c66aa85805",
+      "name": "Send a message",
+      "webhookId": "300c9155-bf64-4cc3-81ae-b721b430779b"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('ClickUp Trigger').item.json.task_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_NZPGF3WF3WY6B7A73DNJ6NZKE2DATSCF"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"status\": \"faktura wyslana\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1312,
+        0
+      ],
+      "id": "d67f167b-8557-492f-8d6f-0e64a5316913",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = [];\n\nfor (const item of items) {\n  const fields = item.json.custom_fields || [];\n\n  const reminderField = fields.find(f => f.name === 'Data przypomnienia');\n\n  if (!reminderField?.value) continue;\n\n  const reminderDate = new Date(Number(reminderField.value))\n    .toISOString()\n    .split('T')[0];\n\n  const today = new Date().toISOString().split('T')[0];\n\n  if (reminderDate === today) {\n    output.push({\n      json: item.json\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        224
+      ],
+      "id": "6ede4712-e6d1-431b-b387-486cf62ebed9",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fa1ebe44-4297-411a-843d-d92cce98aec4",
+              "leftValue": "={{ $json.reminderDate }}",
+              "rightValue": "={{$json.today}}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        608,
+        320
+      ],
+      "id": "1dedacc7-bb48-4bea-b1ea-30d405e5e26f",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.buyer_email }}",
+        "subject": "Przypomnienie o platności",
+        "message": "=<div style=\"font-family:Arial;max-width:600px\">   <h2>Przypomnienie o płatności</h2>    <p>Dzień dobry,</p>    <p>Przypominamy o płatności za fakturę dotyczącą realizacji zadania:</p>    <p><strong>{{ $json.number }}</strong></p>    <p>Jeśli płatność została już wykonana, prosimy zignorować tę wiadomość.</p>    <br>   <p>Pozdrawiamy  </p> </div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1136,
+        224
+      ],
+      "id": "3f7174d5-28a3-425f-b974-85fcd73e9ade",
+      "name": "Send a message1",
+      "webhookId": "54ff7425-2d5a-46d9-9b20-dda52e247a93"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "=0 8 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -112,
+        224
+      ],
+      "id": "ea27b1ce-2c9d-4602-8df1-350a7ea585b5",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/901521672666/task",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_NZPGF3WF3WY6B7A73DNJ6NZKE2DATSCF"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        48,
+        224
+      ],
+      "id": "d718a0e9-4db8-482d-ad4a-5c9ece143686",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "tasks",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        240,
+        224
+      ],
+      "id": "f8374abe-cb8b-40c7-9e6b-e9f236987ceb",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://olaf2209070.fakturownia.pl/invoices.json?api_token=-IVLXVQbg-wpJq6KbWkV",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        976,
+        224
+      ],
+      "id": "b1ad5ecb-f11b-4ceb-a19e-09fa4212e0ae",
+      "name": "HTTP Request4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===============================\n// POBRANIE DANYCH Z CLICKUP\n// ===============================\n\nconst fields = $json.custom_fields || [];\n\nconst getField = (name) => {\n  return fields.find(f => f.name === name)?.value ?? null;\n};\n\nconst getFieldById = (id) => {\n  return fields.find(f => f.id === id)?.value ?? null;\n};\n\n\n// ===============================\n// BEZPIECZNA FUNKCJA DATY\n// ===============================\n\nconst formatDateSafe = (value) => {\n  const today = new Date().toISOString().split('T')[0];\n\n  if (!value) return today;\n\n  if (!isNaN(value)) {\n    return new Date(Number(value)).toISOString().split('T')[0];\n  }\n\n  if (typeof value === 'string' && value.includes('-')) {\n    return value;\n  }\n\n  if (typeof value === 'string' && value.includes('/')) {\n    const parts = value.split('/');\n    return `${parts[2]}-${parts[1]}-${parts[0]}`;\n  }\n\n  return today;\n};\n\n\n// ===============================\n// DATY\n// ===============================\n\nconst issueDate = formatDateSafe(getField('Data wystawienia'));\n\nconst paymentDate = formatDateSafe(\n  getFieldById('1abcd4d2-06e2-458f-b283-b8d5039720ad')\n);\n\n// ===============================\n// WIELE POZYCJI – CZYTANIE PO ID\n// ===============================\n\nlet positions = [];\n\nconst positionField = fields.find(\n  f => f.id === '391f43f9-a4bc-435e-b9f1-16c273c4b98e'\n);\n\nlet rawPositions = null;\n\nif (positionField) {\n  rawPositions = positionField.value || positionField.value_richtext || null;\n}\n\n// DEBUG – możesz chwilowo sprawdzić co przychodzi\n// return [{ json: { rawPositions } }];\n\nif (rawPositions && typeof rawPositions === 'string') {\n\n  const cleanedText = rawPositions.replace(/<[^>]*>/g, '');\n  const rows = cleanedText.split('\\n');\n\n  rows.forEach(row => {\n\n    if (!row.trim()) return;\n\n    const parts = row.split('|').map(p => p.trim());\n\n    if (parts.length >= 4) {\n\n      const name = parts[0] || \"Usługa\";\n      const quantity = Number(parts[1]) > 0 ? Number(parts[1]) : 1;\n      const totalPrice = Number(parts[2]) > 0 ? Number(parts[2]) : 0;\n\n      let vatRaw = parts[3];\n      let vat = 23;\n\n      if (vatRaw.includes('%')) {\n        vat = Number(vatRaw.replace('%', '').trim());\n      } else if (!isNaN(vatRaw)) {\n        vat = Number(vatRaw);\n      }\n\n      positions.push({\n        name: name,\n        quantity: quantity,\n        total_price_gross: totalPrice,\n        tax: vat\n      });\n    }\n\n  });\n}\n\n\n// ===============================\n// FALLBACK\n// ===============================\n\nif (positions.length === 0) {\n  positions.push({\n    name: \"Usługa\",\n    quantity: 1,\n    total_price_gross: 100,\n    tax: 23\n  });\n}\n// ===============================\n// ZWRACAMY OBIEKT DLA FAKTUROWNI\n// ===============================\n\nreturn [\n  {\n    json: {\n      invoice: {\n        kind: \"vat\",\n        status: \"issued\",\n\n        issue_date: issueDate,\n        sell_date: issueDate,\n        payment_to: paymentDate,\n        payment_type: \"transfer\",\n\n        buyer_name: getField('Nazwa firmy') || \"Brak nazwy\",\n        buyer_email: getField('email') || \"brak@email.pl\",\n        buyer_tax_no: getField('NIP') || \"0000000000\",\n        buyer_city: getField('Miasto') || \"Miasto\",\n        buyer_post_code: getField('Kod pocztowy') || \"00-000\",\n\n        positions: positions,\n\n        description: \"Zamówienie z formularza ClickUp\"\n      }\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        224
+      ],
+      "id": "8630d405-7531-4518-b74b-672f5abb092f",
+      "name": "Code in JavaScript2"
+    }
+  ],
+  "connections": {
+    "Get a task": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter1": {
+      "main": [
+        [
+          {
+            "node": "Get a task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ClickUp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "99f37276-af78-49f9-ac8d-5d7c58a54ddf",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:12:33.808Z",
+      "createdAt": "2026-04-04T10:12:33.808Z",
+      "role": "workflow:owner",
+      "workflowId": "Hcr2xjmpkbrJMCaJ",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
