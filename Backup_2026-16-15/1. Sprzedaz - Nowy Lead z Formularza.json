@@ -1,0 +1,350 @@
+{
+  "updatedAt": "2026-04-04T10:10:43.581Z",
+  "createdAt": "2026-04-04T10:10:43.215Z",
+  "id": "oYEcyGp3vL3UX6yU",
+  "name": "1. Sprzedaz - Nowy Lead z Formularza",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nowy-lead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1e36d3cd-0217-4cba-88b7-809dea10a227",
+      "name": "Webhook - Nowy Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        112
+      ],
+      "webhookId": "c7c14480-fd5b-4494-ad4c-e1d371a2f5b6"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json.body || $input.first().json;\n\nconst imie = data.imie || data.name || 'Brak';\nconst nazwisko = data.nazwisko || data.surname || '';\nconst email = data.email || 'brak@email.com';\nconst telefon = data.telefon || data.phone || 'brak';\nconst firma = data.firma || data.company || 'Brak';\nconst budzet = data.budzet || data.budget || 'nie podano';\nconst usluga = data.usluga || data.service || 'nie podano';\nconst kiedy = data.kiedy || data.start || 'nie podano';\nconst wiadomosc = data.wiadomosc || data.message || '';\n\nconst budzetNum = parseInt(String(budzet).replace(/[^0-9]/g, '')) || 0;\nlet leadStatus = 'COLD';\nlet leadPriority = 'low';\nlet leadScore = 0;\n\nif (budzetNum >= 3000) leadScore += 4;\nelse if (budzetNum >= 1000) leadScore += 2;\n\nif (String(kiedy).toLowerCase().includes('szybciej') || String(kiedy).toLowerCase().includes('teraz')) leadScore += 3;\nelse if (String(kiedy).toLowerCase().includes('miesiac') || String(kiedy).toLowerCase().includes('miesiąc')) leadScore += 2;\n\nif (String(usluga).toLowerCase().includes('kompleksow')) leadScore += 2;\n\nif (leadScore >= 6) { leadStatus = 'HOT'; leadPriority = 'urgent'; }\nelse if (leadScore >= 3) { leadStatus = 'WARM'; leadPriority = 'high'; }\nelse { leadStatus = 'COLD'; leadPriority = 'normal'; }\n\nconst emoji = leadStatus === 'HOT' ? '🔥' : leadStatus === 'WARM' ? '🟡' : '🔵';\n\nconst now = new Date();\nconst dataPL = now.toLocaleDateString('pl-PL');\nconst czasPL = now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });\n\nconst followUp = new Date(now.getTime() + 48 * 60 * 60 * 1000);\nconst followUpPL = followUp.toLocaleDateString('pl-PL');\n\nreturn [{ json: {\n  imie, nazwisko, email, telefon, firma,\n  budzet, usluga, kiedy, wiadomosc,\n  leadStatus, leadPriority, leadScore, emoji,\n  dataPL, czasPL, followUpPL,\n  pelneImie: `${imie} ${nazwisko}`.trim()\n}}];"
+      },
+      "id": "6e5155b0-a9be-4df6-92dd-5a3cf0a3ecfe",
+      "name": "Przetworz dane leada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "value": "SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        },
+        "sheetName": {
+          "value": "Leady",
+          "__rl": true,
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Data": "={{ $json.dataPL }}",
+            "Godzina": "={{ $json.czasPL }}",
+            "Imie": "={{ $json.imie }}",
+            "Nazwisko": "={{ $json.nazwisko }}",
+            "Email": "={{ $json.email }}",
+            "Telefon": "={{ $json.telefon }}",
+            "Firma": "={{ $json.firma }}",
+            "Budzet": "={{ $json.budzet }}",
+            "Usluga": "={{ $json.usluga }}",
+            "Kiedy start": "={{ $json.kiedy }}",
+            "Wiadomosc": "={{ $json.wiadomosc }}",
+            "Status": "NOWY LEAD",
+            "Kwalifikacja": "={{ $json.leadStatus }}",
+            "Score": "={{ $json.leadScore }}",
+            "Follow-up termin": "={{ $json.followUpPL }}",
+            "Handlowiec": "",
+            "Notatki": ""
+          }
+        },
+        "options": {}
+      },
+      "id": "307d09b0-e42b-427a-b5bc-476c01e318e9",
+      "name": "Sheets - Dodaj lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Przetworz dane leada').item.json.email }}",
+        "subject": "Otrzymalismy Twoje zapytanie - odpiszemy w 2 godziny",
+        "message": "=<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;color:#1F2937;margin:0;padding:0}.wrap{max-width:600px;margin:0 auto}.head{background:#2563EB;color:white;padding:35px;text-align:center}.head h1{margin:0;font-size:22px}.body{background:#F9FAFB;padding:35px;border:1px solid #E5E7EB}.highlight{background:#EFF6FF;border-left:4px solid #2563EB;padding:15px;margin:20px 0;border-radius:4px}.btn{display:inline-block;background:#2563EB;color:white;padding:14px 28px;border-radius:6px;text-decoration:none;font-weight:bold;margin:20px 0}.foot{background:#1F2937;color:#9CA3AF;padding:20px;text-align:center;font-size:12px}</style></head><body><div class='wrap'><div class='head'><h1>Dziekujemy za kontakt!</h1><p style='margin:8px 0 0 0;opacity:.9'>Twoje zapytanie zostalo przyjete</p></div><div class='body'><p>Hej <strong>{{ $('Przetworz dane leada').item.json.imie }}</strong>!</p><p>Otrzymalismy Twoje zapytanie dotyczace <strong>{{ $('Przetworz dane leada').item.json.usluga }}</strong> i juz sie nim zajmujemy.</p><div class='highlight'><strong>Odezwiemy sie do Ciebie w ciagu 2 godzin roboczych</strong><br><small>Pracujemy pon-pt 9:00-17:00</small></div><p>Twoje zapytanie zostalo przekazane do naszego specjalisty ktory przygotuje dla Ciebie spersonalizowana odpowiedz.</p><a href='https://calendly.com/TWOJ-LINK' class='btn'>Umow bezplatna konsultacje</a><p style='color:#6B7280;font-size:14px'>Masz pilna sprawe? Zadzwon: <strong>+48 123 456 789</strong></p></div><div class='foot'><p>Twoja Agencja Marketingowa<br>kontakt@agencja.pl | agencja.pl</p></div></div></body></html>",
+        "options": {
+          "replyTo": "handlowiec@agencja.pl"
+        }
+      },
+      "id": "a2d92603-969b-4d6f-be82-3c3e3418bde9",
+      "name": "Gmail - Auto odpowiedz do klienta",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        0,
+        144
+      ],
+      "webhookId": "a34cd85f-ab3b-4ad0-9937-aba1288b48dc"
+    },
+    {
+      "parameters": {
+        "sendTo": "handlowiec@agencja.pl",
+        "subject": "={{ $('Przetworz dane leada').item.json.emoji }} NOWY LEAD [{{ $('Przetworz dane leada').item.json.leadStatus }}] - {{ $('Przetworz dane leada').item.json.firma }}",
+        "message": "=<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;color:#1F2937}.wrap{max-width:560px;margin:0 auto;padding:20px}.hot{background:#FEF2F2;border:2px solid #EF4444;padding:20px;border-radius:8px;margin-bottom:20px}.warm{background:#FFFBEB;border:2px solid #F59E0B;padding:20px;border-radius:8px;margin-bottom:20px}.cold{background:#EFF6FF;border:2px solid #3B82F6;padding:20px;border-radius:8px;margin-bottom:20px}.table{width:100%;border-collapse:collapse}.table td{padding:10px;border-bottom:1px solid #E5E7EB;font-size:14px}.table td:first-child{color:#6B7280;width:130px;font-weight:bold}.btn{display:inline-block;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:bold;margin:5px;font-size:13px}.btn-blue{background:#2563EB;color:white}.btn-green{background:#059669;color:white}</style></head><body><div class='wrap'><div class='{{ $('Przetworz dane leada').item.json.leadStatus === 'HOT' ? 'hot' : $('Przetworz dane leada').item.json.leadStatus === 'WARM' ? 'warm' : 'cold' }}'><h2 style='margin:0'>{{ $('Przetworz dane leada').item.json.emoji }} Nowy lead - {{ $('Przetworz dane leada').item.json.leadStatus }}</h2><p style='margin:5px 0 0 0'>Wpłynal {{ $('Przetworz dane leada').item.json.dataPL }} o {{ $('Przetworz dane leada').item.json.czasPL }}</p></div><table class='table'><tr><td>Klient</td><td><strong>{{ $('Przetworz dane leada').item.json.pelneImie }}</strong></td></tr><tr><td>Firma</td><td>{{ $('Przetworz dane leada').item.json.firma }}</td></tr><tr><td>Email</td><td>{{ $('Przetworz dane leada').item.json.email }}</td></tr><tr><td>Telefon</td><td>{{ $('Przetworz dane leada').item.json.telefon }}</td></tr><tr><td>Usluga</td><td>{{ $('Przetworz dane leada').item.json.usluga }}</td></tr><tr><td>Budzet</td><td><strong>{{ $('Przetworz dane leada').item.json.budzet }}</strong></td></tr><tr><td>Kiedy start</td><td>{{ $('Przetworz dane leada').item.json.kiedy }}</td></tr><tr><td>Score</td><td>{{ $('Przetworz dane leada').item.json.leadScore }}/10</td></tr><tr><td>Follow-up</td><td>{{ $('Przetworz dane leada').item.json.followUpPL }}</td></tr><tr><td>Wiadomosc</td><td><em>{{ $('Przetworz dane leada').item.json.wiadomosc }}</em></td></tr></table><div style='margin-top:20px;text-align:center'><p><strong>Zadzwon lub odpisz jak najszybciej!</strong></p><a href='mailto:{{ $('Przetworz dane leada').item.json.email }}' class='btn btn-blue'>Odpisz teraz</a><a href='tel:{{ $('Przetworz dane leada').item.json.telefon }}' class='btn btn-green'>Zadzwon</a></div></div></body></html>",
+        "options": {}
+      },
+      "id": "b466d631-41da-494c-b178-bd7dc09e161a",
+      "name": "Gmail - Powiadom handlowca",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        0,
+        288
+      ],
+      "webhookId": "eed1927e-e933-409d-968f-2c0b64e98862"
+    },
+    {
+      "parameters": {
+        "amount": 48
+      },
+      "id": "5b59c7b6-bd56-4398-8125-59746ec4607a",
+      "name": "Czekaj 48 godzin",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        224,
+        112
+      ],
+      "webhookId": "followup-wait-001"
+    },
+    {
+      "parameters": {
+        "operation": "getRows",
+        "documentId": {
+          "value": "SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        }
+      },
+      "id": "9b261aac-591b-4bc5-9cce-43e366526d42",
+      "name": "Sheets - Sprawdz status leada",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        448,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "cond-status-001",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "NOWY LEAD",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "all"
+        },
+        "options": {}
+      },
+      "id": "a54ba0fb-fe79-46ec-bace-ddc6f1a9d5eb",
+      "name": "Czy nadal brak kontaktu",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        672,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Przetworz dane leada').item.json.email }}",
+        "subject": "Czy dotarla do Ciebie nasza wiadomosc?",
+        "message": "=<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;color:#1F2937}.wrap{max-width:560px;margin:0 auto}.head{background:#2563EB;color:white;padding:30px;text-align:center;border-radius:8px 8px 0 0}.body{background:#F9FAFB;padding:30px;border:1px solid #E5E7EB}.btn{display:inline-block;background:#2563EB;color:white;padding:14px 28px;border-radius:6px;text-decoration:none;font-weight:bold;margin:15px 5px}.btn-green{background:#059669}.foot{background:#1F2937;color:#9CA3AF;padding:15px;text-align:center;font-size:12px;border-radius:0 0 8px 8px}</style></head><body><div class='wrap'><div class='head'><h2 style='margin:0'>Czy wszystko ok?</h2></div><div class='body'><p>Hej <strong>{{ $('Przetworz dane leada').item.json.imie }}</strong>!</p><p>Napisales/as do nas 2 dni temu w sprawie <strong>{{ $('Przetworz dane leada').item.json.usluga }}</strong>.</p><p>Chcialem upewnic sie ze masz wszystkie informacje ktorych potrzebujesz i odpowiedziec na ewentualne pytania.</p><p>Masz 15 minut na szybka rozmowe?</p><div style='text-align:center'><a href='https://calendly.com/TWOJ-LINK' class='btn btn-green'>Umow rozmowe</a><a href='mailto:handlowiec@agencja.pl' class='btn'>Odpisz na maila</a></div><p style='color:#6B7280;font-size:13px;margin-top:20px'>Mozesz tez zadzwonic: <strong>+48 123 456 789</strong></p></div><div class='foot'>Twoja Agencja | kontakt@agencja.pl</div></div></body></html>",
+        "options": {}
+      },
+      "id": "8e7517fa-8bce-46ac-915d-eff38efb18b8",
+      "name": "Gmail - Follow-up do klienta",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "webhookId": "fd5cae80-8944-4e6d-8909-250b3d260faf"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "value": "SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        },
+        "sheetName": {
+          "value": "Leady",
+          "__rl": true,
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "FOLLOW-UP WYSLANY",
+            "Notatki": "Auto follow-up wyslany po 48h"
+          }
+        },
+        "options": {}
+      },
+      "id": "59169146-8086-4217-86d9-f5a3a21f3453",
+      "name": "Sheets - Aktualizuj status na FOLLOW-UP",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        880,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\", \"message\": \"Lead przyjety\" }",
+        "options": {}
+      },
+      "id": "f3318106-3a8b-4bfc-bb26-470ae1be79d3",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        432
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Nowy Lead": {
+      "main": [
+        [
+          {
+            "node": "Przetworz dane leada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Przetworz dane leada": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Dodaj lead",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gmail - Auto odpowiedz do klienta",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gmail - Powiadom handlowca",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Czekaj 48 godzin",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Czekaj 48 godzin": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Sprawdz status leada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Sprawdz status leada": {
+      "main": [
+        [
+          {
+            "node": "Czy nadal brak kontaktu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Czy nadal brak kontaktu": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Follow-up do klienta",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Sheets - Aktualizuj status na FOLLOW-UP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "becaf224-8b5b-428d-a610-ae6eab45653f",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:10:43.218Z",
+      "createdAt": "2026-04-04T10:10:43.218Z",
+      "role": "workflow:owner",
+      "workflowId": "oYEcyGp3vL3UX6yU",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
