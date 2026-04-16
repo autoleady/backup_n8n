@@ -1,0 +1,2025 @@
+{
+  "updatedAt": "2026-04-16T19:54:50.828Z",
+  "createdAt": "2026-04-16T19:45:22.605Z",
+  "id": "D7UrG9EwWBNgiwmZ",
+  "name": "Planner → Auto Posts",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "id": "6380844f-e525-47ce-8218-8003beef51bd",
+      "name": "⏰ Trigger — Co Godzinę",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -784,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "readRows",
+        "documentId": {
+          "__rl": true,
+          "value": "TWOJ_SPREADSHEET_ID",
+          "mode": "id"
+        }
+      },
+      "id": "618118b8-42c5-4e27-8121-f34bd423e8e4",
+      "name": "📊 Google Sheets — Pobierz Planer",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        -560,
+        848
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ============================================\n// FILTRUJ TYLKO NIESYNCHRONIZOWANE WIERSZE\n// ============================================\n\nconst row = item.json;\n\n// Pomiń jeśli już zsynchronizowano i nie ma zmian\nconst synced = (row['Zsynchronizowano'] || '').toString().toUpperCase();\nconst clickupId = row['ClickUp_ID'] || '';\nconst nazwaZadania = row['Nazwa Zadania'] || '';\n\n// Pomiń puste wiersze\nif (!nazwaZadania.trim()) {\n  return null; // null = pomiń ten item\n}\n\n// Przetwórz wiersze:\n// - NIE = nowy task do utworzenia\n// - AKTUALIZUJ = zaktualizuj istniejący\n// - TAK = już ok, pomijamy\nif (synced === 'TAK' && clickupId) {\n  return null; // już zsynchronizowany\n}\n\n// Mapowanie osoby na ID assignee w ClickUp\nconst assigneeMap = {\n  'Maciek':    'CLICKUP_USER_ID_MACIEK',\n  'Wojtek':    'CLICKUP_USER_ID_WOJTEK',\n  'Agnieszka': 'CLICKUP_USER_ID_AGNIESZKA'\n};\n\n// Mapowanie statusu\nconst statusMap = {\n  'Nowe':      'nowe',\n  'W toku':    'w realizacji',\n  'Czeka':     'czeka na akceptacje',\n  'Gotowe':    'gotowe',\n  'Anulowane': 'anulowane'\n};\n\n// Mapowanie priorytetu\nconst priorityMap = {\n  'Pilny':   1,\n  'Wysoki':  2,\n  'Średni':  3,\n  'Niski':   4\n};\n\n// Konwertuj deadline na timestamp\nlet deadlineTs = null;\nif (row['Deadline']) {\n  const d = new Date(row['Deadline']);\n  if (!isNaN(d.getTime())) {\n    deadlineTs = d.getTime();\n  }\n}\n\nreturn {\n  json: {\n    // Dane z Sheets\n    rowId:          row['ID'] || '',\n    nazwaZadania:   nazwaZadania,\n    klient:         row['Klient'] || '',\n    przypisz_do:    row['Przypisz Do'] || '',\n    assigneeId:     assigneeMap[row['Przypisz Do']] || null,\n    status:         statusMap[row['Status']] || 'nowe',\n    statusOriginal: row['Status'] || 'Nowe',\n    deadline:       row['Deadline'] || '',\n    deadlineTs,\n    budzet:         row['Budżet'] || '',\n    priorytet:      priorityMap[row['Priorytet']] || 3,\n    notatki:        row['Notatki'] || '',\n    \n    // Meta\n    clickupId:      clickupId,\n    action:         clickupId ? 'update' : 'create',\n    \n    // Zachowaj numer wiersza do aktualizacji\n    rowNumber:      row.row_number || row['_rowNumber'] || null\n  }\n};"
+      },
+      "id": "9afd6fe9-6cbf-4fb3-8fb1-ca3fcbd432c4",
+      "name": "🔍 Filtruj i Przygotuj Dane",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -336,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Utwórz Nowy"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Zaktualizuj"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4d27f99d-57a0-4221-8c9c-0062539de0c5",
+      "name": "🔀 Router Akcji",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -112,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.clickup.com/api/v2/list/TWOJA_LISTA_PLANER_ID/task",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_ZNUOSI8B1NFZGEMSJ22H2OIOOTET2YV1"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{{ $json.nazwaZadania }}\",\n  \"description\": \"**Klient:** {{ $json.klient }}\\n**Budżet:** {{ $json.budzet }} PLN\\n**Przypisano:** {{ $json.przypisz_do }}\\n\\n**Notatki:**\\n{{ $json.notatki }}\\n\\n---\\n*Zsynchronizowano z Google Sheets Planer (ID: {{ $json.rowId }})*\",\n  \"status\": \"{{ $json.status }}\",\n  \"priority\": {{ $json.priorytet }},\n  \"due_date\": {{ $json.deadlineTs || 'null' }},\n  \"due_date_time\": false,\n  \"assignees\": {{ $json.assigneeId ? '[' + $json.assigneeId + ']' : '[]' }},\n  \"custom_fields\": [\n    {\n      \"id\": \"623f589b-4ded-47e5-ae3f-4ed3dd63c11c\",\n      \"value\": \"{{ $json.klient }}\"\n    },\n    {\n      \"id\": \"a4627bff-1691-42aa-8e7e-830d22fc0851\",\n      \"value\": \"{{ $json.przypisz_do }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "23903339-5181-421a-8391-37b3e487c157",
+      "name": "➕ ClickUp — Utwórz Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        96,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.clickupId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_ZNUOSI8B1NFZGEMSJ22H2OIOOTET2YV1"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{{ $json.nazwaZadania }}\",\n  \"status\": \"{{ $json.status }}\",\n  \"priority\": {{ $json.priorytet }},\n  \"due_date\": {{ $json.deadlineTs || 'null' }}\n}",
+        "options": {}
+      },
+      "id": "0796c380-d577-4108-935e-26476dd9f1b1",
+      "name": "✏️ ClickUp — Zaktualizuj Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        96,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Pobierz ID nowo utworzonego taska\nconst createdTask = item.json;\nconst originalData = $('🔍 Filtruj i Przygotuj Dane').item.json;\n\nreturn {\n  json: {\n    clickupTaskId: createdTask.id,\n    clickupTaskUrl: createdTask.url,\n    rowId: originalData.rowId,\n    rowNumber: originalData.rowNumber,\n    nazwaZadania: originalData.nazwaZadania,\n    action: 'created'\n  }\n};"
+      },
+      "id": "d2a47790-d063-439c-8594-0ccd7b545ad5",
+      "name": "🆔 Wyciągnij ID Nowego Taska",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "TWOJ_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Planer",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID": "={{ $json.rowId }}",
+            "Zsynchronizowano": "TAK",
+            "ClickUp_ID": "={{ $json.clickupTaskId }}"
+          },
+          "matchingColumns": [
+            "ID"
+          ]
+        },
+        "options": {}
+      },
+      "id": "d1983726-0078-4cbc-b5ab-5083f606c0c2",
+      "name": "✅ Sheets — Oznacz Zsynchronizowany",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        544,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const updatedTask = item.json;\nconst originalData = $('🔍 Filtruj i Przygotuj Dane').item.json;\n\nreturn {\n  json: {\n    clickupTaskId: originalData.clickupId,\n    rowId: originalData.rowId,\n    nazwaZadania: originalData.nazwaZadania,\n    action: 'updated',\n    newStatus: originalData.status\n  }\n};"
+      },
+      "id": "0d42eac3-f0a7-4fde-a119-bf58b5c95794",
+      "name": "📝 Przygotuj Dane Aktualizacji",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "TWOJ_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Planer",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID": "={{ $json.rowId }}",
+            "Zsynchronizowano": "TAK"
+          },
+          "matchingColumns": [
+            "ID"
+          ]
+        },
+        "options": {}
+      },
+      "id": "00baad0c-af67-4e0c-b542-5811fd0c0d93",
+      "name": "✅ Sheets — Oznacz Zaktualizowany",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        544,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "66e5d537-67bd-4d13-ab37-857b569e7cb7",
+      "name": "⏰ Trigger — Codziennie 9:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -848,
+        1344
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "TWOJ_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DANE",
+          "mode": "name"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "STATUS",
+              "lookupValue": "APPROVED"
+            },
+            {
+              "lookupColumn": "WYSLANO_DO_CLICKUP",
+              "lookupValue": "FALSE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a8a774c0-8d60-4529-9587-3248aa7443d0",
+      "name": "📊 Sheets — Pobierz APPROVED posty",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        -624,
+        1344
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// WALIDUJ I PRZYGOTUJ DANE POSTA\n// ============================================\n\nconst row = $input.item.json;\n\n// Sprawdź wymagane pola\nif (!row.DATA_PUBLIKACJI) {\n  return [{ json: { skip: true, reason: 'Brak daty', row } }];\n}\n\nif (!row.TYTUL && !row.OPIS) {\n  return [{ json: { skip: true, reason: 'Brak tytułu i opisu', row } }];\n}\n\n// Parsuj datę\nconst dateParts = row.DATA_PUBLIKACJI.split('-');\nconst publishDate = new Date(\n  parseInt(dateParts[0]),\n  parseInt(dateParts[1]) - 1,\n  parseInt(dateParts[2])\n);\n\n// Timestamp dla ClickUp (milisekundy)\nconst dueDateTs = publishDate.getTime();\n\n// Priorytet na podstawie daty\nconst daysUntil = Math.ceil((publishDate - new Date()) / (1000 * 60 * 60 * 24));\nlet priority = 3; // normal\nif (daysUntil <= 1) priority = 1;  // urgent\nelse if (daysUntil <= 3) priority = 2; // high\nelse if (daysUntil <= 7) priority = 3; // normal\nelse priority = 4; // low\n\n// Emoji dla typu posta\nconst typeEmoji = {\n  'Post':      '📝',\n  'Reels':     '🎬',\n  'Stories':   '📸',\n  'Karuzela':  '🎠',\n  'Wideo':     '🎥'\n};\n\nconst emoji = typeEmoji[row.TYP_POSTA] || '📌';\n\n// Nazwa taska\nconst taskName = `${emoji} ${row.DATA_PUBLIKACJI} | ${row.PLATFORMA || 'Social'} | ${row.TYTUL || row.OPIS?.substring(0, 50)}`;\n\n// Opis taska (markdown)\nconst description = [\n  `## ${row.TYTUL || 'Post bez tytułu'}`,\n  '',\n  `**📅 Data publikacji:** ${row.DATA_PUBLIKACJI} (${row.DZIEN_TYGODNIA || ''})`,\n  `**📱 Platforma:** ${row.PLATFORMA || 'Nie określono'}`,\n  `**🎬 Typ:** ${row.TYP_POSTA || 'Post'}`,\n  '',\n  '---',\n  '',\n  '### 📝 Treść posta',\n  row.OPIS || '_Brak treści_',\n  '',\n  row.CTA_LINK ? `### 🔗 CTA / Link\\n${row.CTA_LINK}` : '',\n  '',\n  row.HASZTAGI ? `### #️⃣ Hasztagi\\n${row.HASZTAGI}` : '',\n  '',\n  row.LINK_GRAFIKI ? `### 🖼️ Grafika\\n${row.LINK_GRAFIKI}` : '⚠️ _Brak grafiki_',\n  '',\n  row.NOTATKI ? `### 📋 Notatki\\n${row.NOTATKI}` : '',\n  '',\n  '---',\n  `*ID arkusza: ${row.ID}*`\n].filter(line => line !== '').join('\\n');\n\nreturn [{\n  json: {\n    skip: false,\n    sheetId: row.ID,\n    taskName,\n    description,\n    publishDate: row.DATA_PUBLIKACJI,\n    dueDateTs,\n    priority,\n    daysUntil,\n    platform: row.PLATFORMA || 'Social Media',\n    postType: row.TYP_POSTA || 'Post',\n    title: row.TYTUL || '',\n    content: row.OPIS || '',\n    cta: row.CTA_LINK || '',\n    hashtags: row.HASZTAGI || '',\n    imageLink: row.LINK_GRAFIKI || '',\n    notes: row.NOTATKI || '',\n    rowNumber: row._rowNumber || row.rowIndex\n  }\n}];"
+      },
+      "id": "cc815fc1-74b3-4433-99d3-c657e7acfcae",
+      "name": "🔧 Przygotuj Dane Posta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        1344
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "skip-check",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "68694858-45b0-484b-81af-7abefcf78845",
+      "name": "❓ Czy Pominąć",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -176,
+        1344
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.clickup.com/api/v2/list/TWOJA_LISTA_SOCIAL_MEDIA/task",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "TWOJ_CLICKUP_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{{ $json.taskName }}\",\n  \"description\": \"{{ $json.description }}\",\n  \"priority\": {{ $json.priority }},\n  \"due_date\": {{ $json.dueDateTs }},\n  \"due_date_time\": false,\n  \"tags\": [\n    \"social-media\",\n    \"{{ $json.postType.toLowerCase() }}\",\n    \"{{ $json.platform.toLowerCase() }}\",\n    \"auto-sheets\"\n  ],\n  \"custom_fields\": [\n    {\n      \"id\": \"POLE_PLATFORMA\",\n      \"value\": \"{{ $json.platform }}\"\n    },\n    {\n      \"id\": \"POLE_TYP_POSTA\",\n      \"value\": \"{{ $json.postType }}\"\n    },\n    {\n      \"id\": \"POLE_DATA_PUBLIKACJI\",\n      \"value\": \"{{ $json.publishDate }}\"\n    },\n    {\n      \"id\": \"POLE_LINK_GRAFIKI\",\n      \"value\": \"{{ $json.imageLink }}\"\n    },\n    {\n      \"id\": \"POLE_HASZTAGI\",\n      \"value\": \"{{ $json.hashtags }}\"\n    },\n    {\n      \"id\": \"POLE_SHEET_ID\",\n      \"value\": \"{{ $json.sheetId }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "5937d3ec-bb39-41d3-b674-bd0f50ca945b",
+      "name": "📋 ClickUp — Utwórz Task Posta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        32,
+        1264
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Zapisz ClickUp Task ID z powrotem do Sheets\nconst clickupResponse = item.json;\nconst taskId = clickupResponse.id || '';\nconst taskUrl = clickupResponse.url || '';\n\nreturn {\n  json: {\n    clickupTaskId: taskId,\n    clickupTaskUrl: taskUrl,\n    success: !!taskId\n  }\n};"
+      },
+      "id": "525b7b56-1b86-44aa-b01a-6af1588b0f59",
+      "name": "🔑 Wyciągnij Task ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        1264
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "TWOJ_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DANE",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "e7498c22-a47d-4905-87f4-a76dfbefd69f",
+      "name": "✏️ Sheets — Oznacz jako Wysłane",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        480,
+        1264
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log pominiętego wiersza\nconst data = $input.item.json;\nconsole.log(`Pominięto: ${data.reason} | Row: ${JSON.stringify(data.row?.ID)}`);\nreturn [{ json: { skipped: true, reason: data.reason } }];"
+      },
+      "id": "ef8cc16a-2b8b-43ae-8fa1-a16e9998bb64",
+      "name": "📝 Log — Pominięto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        32,
+        1456
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "7e4a04ad-9762-4468-861a-0fe6eb61abb5",
+      "name": "⏰ Trigger — Codziennie 7:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -832,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/16KFmm7YVtXwRSFUOgSVfFv7yNTeyBK7CZB1j4t3RrWI/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1897842650,
+          "mode": "list",
+          "cachedResultName": "STYCZEŃ CONTENT CALENDAR",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/16KFmm7YVtXwRSFUOgSVfFv7yNTeyBK7CZB1j4t3RrWI/edit#gid=1897842650"
+        },
+        "options": {}
+      },
+      "id": "a5b9c3da-a175-44dd-a542-030a3f4e95eb",
+      "name": "📊 Czytaj Planer Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        -608,
+        1888
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// PARSUJ PIONOWĄ STRUKTURĘ PLANERA SOCIAL MEDIA\n// ============================================\n// Struktura:\n//   - Każda PARZYSTA kolumna (col_2, col_4...) = 1 dzień LUB 1 platforma\n//   - Nieparzyste kolumny = puste separatory\n//   - row_number mapuje konkretne pola\n//\n// GDZIE ZMIENIĆ ID LISTY CLICKUP:\n//   → Szukaj komentarza: // ⚙️ ZMIEŃ ID LISTY\n// ============================================\n\nconst allRows = $input.all().map(r => r.json);\n\n// ============================================\n// MAPOWANIE WIERSZY po row_number\n// ============================================\nfunction getRowByNumber(rows, rowNum) {\n  return rows.find(r => r.row_number === rowNum) || {};\n}\n\nconst ROW_DATA = {\n  data:       getRowByNumber(allRows, 5),   // daty\n  tytul:      getRowByNumber(allRows, 6),   // tytuł posta\n  typGrafiki: getRowByNumber(allRows, 7),   // grafiki/wideo/karuzela\n  typPosta:   getRowByNumber(allRows, 8),   // Post/Reels/TikTok\n  linkGrafiki:getRowByNumber(allRows, 11),  // link Google Drive\n  opis:       getRowByNumber(allRows, 13),  // treść opisu\n  cta:        getRowByNumber(allRows, 15),  // CTA/link\n  hasztagi:   getRowByNumber(allRows, 17),  // hasztagi\n  status:     getRowByNumber(allRows, 19),  // STATUS\n  notatki:    getRowByNumber(allRows, 21),  // notatki\n  feedback:   getRowByNumber(allRows, 23),  // feedback\n  taskId:     getRowByNumber(allRows, 25),  // TASK_ID wartość ← wiersz 25\n};\n\n// ============================================\n// ZNAJDŹ WSZYSTKIE KOLUMNY Z DANYMI\n// Kolumny mają format: col_2, col_4, col_6...\n// Pierwsza kolumna ma nazwę = nazwa miesiąca (np. \"stycznia 2026\")\n// ============================================\n\n// Znajdź klucz pierwszej kolumny danych (alias miesiąca)\nconst firstColKey = Object.keys(ROW_DATA.data).find(k => \n  k !== 'row_number' && \n  k !== 'col_1' && \n  ROW_DATA.data[k] !== '' &&\n  !k.startsWith('col_')\n);\n\n// Zbuduj listę wszystkich kluczy kolumn (co 2: col_2, col_4, col_6...)\nconst allColKeys = [];\n\n// Dodaj pierwszą kolumnę (alias)\nif (firstColKey) allColKeys.push(firstColKey);\n\n// Dodaj col_4, col_6... aż do col_80 (z krokiem 2)\nfor (let i = 4; i <= 80; i += 2) {\n  allColKeys.push(`col_${i}`);\n}\n\n// ============================================\n// MAPOWANIE STATUSÓW → ClickUp\n// ⚙️ ZMIEŃ statusy jeśli inne w Twoim ClickUp\n// ============================================\nconst STATUS_MAP = {\n  'APPROVED':              'Zatwierdzone przez klienta',\n  'WAITING FOR APPROVAL':  'Wyslane do klienta',\n  'NEEDS EDITING':         'Poprawki zakonczone',\n  'NEEDS EDIT':            'Poprawki zakonczone',\n  'DRAFT':                 'Do zrobienia',\n  'PUBLISHED':             'W realizacji',\n  'REJECTED':              'Do zrobienia',\n  'IN PROGRESS':           'W realizacji',\n  'TO DO':                 'Do zrobienia',\n};\n\nfunction mapStatus(rawStatus) {\n  if (!rawStatus) return 'Do zrobienia';\n  const upper = rawStatus.toUpperCase().trim();\n  return STATUS_MAP[upper] || 'Do zrobienia';\n}\n\n// ============================================\n// PARSUJ DATĘ PL\n// Format: \"czwartek, stycznia 1, 2026\"\n// ============================================\nconst MONTHS_PL = {\n  'stycznia':   0,  'lutego':  1,  'marca':     2,\n  'kwietnia':   3,  'maja':    4,  'czerwca':   5,\n  'lipca':      6,  'sierpnia':7,  'września':  8,\n  'października':9, 'listopada':10,'grudnia':   11\n};\n\nfunction parseDatePL(dateStr) {\n  if (!dateStr || typeof dateStr !== 'string') return null;\n  try {\n    // \"czwartek, stycznia 1, 2026\" lub \"sobota, stycznia 3, 2026\"\n    const match = dateStr.match(/(\\w+),\\s+(\\w+)\\s+(\\d{1,2}),?\\s+(\\d{4})/);\n    if (match) {\n      const monthName = match[2].toLowerCase();\n      const day       = parseInt(match[3]);\n      const year      = parseInt(match[4]);\n      const monthNum  = MONTHS_PL[monthName];\n      if (monthNum !== undefined) {\n        return new Date(year, monthNum, day);\n      }\n    }\n    // Fallback\n    const d = new Date(dateStr);\n    return isNaN(d.getTime()) ? null : d;\n  } catch(e) {\n    return null;\n  }\n}\n\n// ============================================\n// SPRAWDŹ CZY KOLUMNA MA DANE\n// ============================================\nfunction isDataColumn(colKey) {\n  // Musi mieć datę LUB tytuł\n  const hasDate  = !!ROW_DATA.data[colKey];\n  const hasTitle = !!ROW_DATA.tytul[colKey];\n  const hasOdpis = !!ROW_DATA.opis[colKey];\n  return hasDate || hasTitle || hasOdpis;\n}\n\n// ============================================\n// GŁÓWNA PĘTLA — zbierz posty\n// ============================================\nconst posts = [];\nlet colIndex = 0;\n\nfor (const colKey of allColKeys) {\n  // Pomiń puste kolumny\n  if (!isDataColumn(colKey)) continue;\n\n  const dateRaw    = ROW_DATA.data[colKey]       || '';\n  const tytul      = ROW_DATA.tytul[colKey]      || '';\n  const typGrafiki = ROW_DATA.typGrafiki[colKey] || '';\n  const typPosta   = ROW_DATA.typPosta[colKey]   || 'Post';\n  const linkGraf   = ROW_DATA.linkGrafiki[colKey]|| '';\n  const opis       = ROW_DATA.opis[colKey]       || '';\n  const cta        = ROW_DATA.cta[colKey]        || '';\n  const hasztagi   = ROW_DATA.hasztagi[colKey]   || '';\n  const statusRaw  = ROW_DATA.status[colKey]     || '';\n  const notatki    = ROW_DATA.notatki[colKey]    || '';\n  const feedback   = ROW_DATA.feedback[colKey]   || '';\n  const taskId     = ROW_DATA.taskId[colKey]     || '';\n\n  // Pomiń jeśli brak tytułu i opisu\n  if (!tytul && !opis) continue;\n\n  // Pomiń jeśli to nagłówek (wartość = \"OPIS\", \"STATUS\" itp.)\n  const SKIP_VALUES = ['OPIS','STATUS','HASZTAGI','CTA/LINK','NOTATKI',\n                       'FEEDBACK OD KLIENTA','LINK TO GOOGLE DRIVE/FULL IMAGE'];\n  if (SKIP_VALUES.includes(tytul.toUpperCase())) continue;\n\n  // Parsuj datę\n  const postDateObj = parseDatePL(dateRaw);\n  const postDateISO = postDateObj ? postDateObj.toISOString() : null;\n\n  // Mapuj status\n  const clickupStatus = mapStatus(statusRaw);\n\n  // Wyczyść link (usuń \"Link to Google Drive/full image\" placeholder)\n  const cleanLink = (linkGraf && !linkGraf.toLowerCase().includes('link to google')) \n    ? linkGraf.trim() \n    : '';\n\n  // Numer porządkowy posta w miesiącu\n  colIndex++;\n\n  posts.push({\n    // ── Identyfikatory ──────────────────────\n    kolumna:        colKey,\n    numerPosta:     colIndex,\n\n    // ── Data ────────────────────────────────\n    dataRaw:        dateRaw,\n    postDate:       postDateISO,\n    postDateLabel:  postDateObj \n      ? postDateObj.toLocaleDateString('pl-PL', { \n          weekday:'long', day:'numeric', month:'long', year:'numeric' \n        }) \n      : dateRaw,\n\n    // ── Treść ───────────────────────────────\n    tytul:          tytul,\n    typGrafiki:     typGrafiki,\n    typPosta:       typPosta,\n    linkGrafiki:    cleanLink,\n    opis:           opis,\n    cta:            cta,\n    hasztagi:       hasztagi,\n\n    // ── Status ──────────────────────────────\n    statusRaw:      statusRaw,\n    clickupStatus:  clickupStatus,\n\n    // ── Task ID ─────────────────────────────\n    taskId:         taskId,\n    juzMaTask:      !!taskId && taskId.length > 3,\n\n    // ── Dodatkowe ───────────────────────────\n    notatki:        notatki,\n    feedback:       feedback,\n\n    // ── Flagi ───────────────────────────────\n    maLink:         !!cleanLink,\n    maOpis:         !!opis,\n    maTytul:        !!tytul,\n    jestApproved:   statusRaw.toUpperCase() === 'APPROVED',\n    czekaNaAkcept:  statusRaw.toUpperCase().includes('WAITING'),\n    wymaga_poprawek:statusRaw.toUpperCase().includes('NEEDS'),\n  });\n}\n\n// ============================================\n// PODSUMOWANIE\n// ============================================\nconsole.log(`✅ Znaleziono ${posts.length} postów w planerze`);\nconsole.log(`📋 Bez task ID: ${posts.filter(p => !p.juzMaTask).length}`);\nconsole.log(`✅ Approved: ${posts.filter(p => p.jestApproved).length}`);\nconsole.log(`⏳ Czeka na akceptację: ${posts.filter(p => p.czekaNaAkcept).length}`);\nconsole.log(`✏️ Wymaga poprawek: ${posts.filter(p => p.wymaga_poprawek).length}`);\n\nreturn posts.map(p => ({ json: p }));"
+      },
+      "id": "6b167909-ffea-4f0a-82d5-3a7b8e7745f6",
+      "name": "🔍 Parsuj Strukturę Planera",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "no-task-yet",
+              "leftValue": "={{ $json.juzMaTask }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f80fe5b6-047c-4c0e-85a8-3fb32c2235aa",
+      "name": "🔎 Filtruj — Tylko Bez Task ID",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -176,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.clickup.com/api/v2/list/TWOJA_LISTA_SOCIAL_MEDIA/task",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_TWOJ_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"📱 {{ $json.typPosta }}: {{ $json.tytul }}\",\n  \"description\": \"## 📋 Szczegóły Posta\\n\\n**Data publikacji:** {{ $json.dataRaw }}\\n**Typ posta:** {{ $json.typPosta }}\\n**Format graficzny:** {{ $json.typGrafiki }}\\n\\n---\\n\\n### 📝 Opis / Caption\\n{{ $json.opis }}\\n\\n### 🔗 CTA / Link\\n{{ $json.cta }}\\n\\n### #️⃣ Hasztagi\\n{{ $json.hasztagi }}\\n\\n### 🖼️ Grafika\\n{{ $json.linkGrafiki }}\\n\\n### 📌 Notatki\\n{{ $json.notatki }}\\n\\n### 💬 Feedback od Klienta\\n{{ $json.feedback }}\",\n  \"status\": \"{{ $json.clickupStatus }}\",\n  \"due_date\": {{ $json.postDate ? new Date($json.postDate).getTime() : 'null' }},\n  \"custom_fields\": [\n    {\n      \"id\": \"POLE_TYP_POSTA\",\n      \"value\": \"{{ $json.typPosta }}\"\n    },\n    {\n      \"id\": \"POLE_TYP_GRAFIKI\",\n      \"value\": \"{{ $json.typGrafiki }}\"\n    },\n    {\n      \"id\": \"POLE_LINK_GRAFIKI\",\n      \"value\": \"{{ $json.linkGrafiki }}\"\n    },\n    {\n      \"id\": \"POLE_HASZTAGI\",\n      \"value\": \"{{ $json.hasztagi }}\"\n    },\n    {\n      \"id\": \"POLE_STATUS_PLANERA\",\n      \"value\": \"{{ $json.status }}\"\n    },\n    {\n      \"id\": \"POLE_KOLUMNA_SHEETS\",\n      \"value\": \"{{ $json.kolumna }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "0102148e-19b1-44b7-b0aa-8b46d655bcd9",
+      "name": "✅ Utwórz Task w ClickUp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        48,
+        1808
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Wyciągnij ID nowego taska\nconst newTaskId = $input.item.json.id;\nconst postData  = $('🔍 Parsuj Strukturę Planera').item.json;\n\nconsole.log(`✅ Utworzono task: ${newTaskId} dla posta: ${postData.tytul}`);\n\nreturn {\n  json: {\n    newTaskId,\n    kolumna:   postData.kolumna,\n    tytul:     postData.tytul,\n    taskUrl:   $input.item.json.url\n  }\n};"
+      },
+      "id": "81aa6b24-3a2c-4d5e-a79e-36392cc584f4",
+      "name": "🆔 Wyciągnij Nowe Task ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        1808
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "TWOJ_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "STYCZEŃ CONTENT PLANNER",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "TASK_ID": "={{ $json.newTaskId }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "8120fa5d-abe6-4456-baf0-a3808ac432ac",
+      "name": "💾 Zapisz Task ID do Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        496,
+        1808
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "has-task",
+              "leftValue": "={{ $json.juzMaTask }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9aafd342-2997-494e-81e9-76b521cebb45",
+      "name": "🔄 Filtruj — Ma Task ID (aktualizuj)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        16,
+        2032
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.taskId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_TWOJ_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"{{ $json.clickupStatus }}\",\n  \"description\": \"## 📋 Szczegóły Posta (zaktualizowano)\\n\\n**Data publikacji:** {{ $json.dataRaw }}\\n**Typ:** {{ $json.typPosta }} | {{ $json.typGrafiki }}\\n\\n### 📝 Opis\\n{{ $json.opis }}\\n\\n### #️⃣ Hasztagi\\n{{ $json.hasztagi }}\\n\\n### 💬 Feedback\\n{{ $json.feedback }}\"\n}",
+        "options": {}
+      },
+      "id": "6e7d9e82-09a9-4c50-8b95-6492f048e73e",
+      "name": "🔄 Aktualizuj Istniejący Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        2016
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// GENERUJ NAZWĘ AKTUALNEGO ARKUSZA\n// Format: STYCZEŃ CONTENT PLANNER\n// ============================================\n\nconst MONTHS_PL = [\n  'STYCZEŃ','LUTY','MARZEC','KWIECIEŃ',\n  'MAJ','CZERWIEC','LIPIEC','SIERPIEŃ',\n  'WRZESIEŃ','PAŹDZIERNIK','LISTOPAD','GRUDZIEŃ'\n];\n\nconst now = new Date();\nconst currentMonth = MONTHS_PL[now.getMonth()];\nconst currentYear  = now.getFullYear();\n\n// Nazwa arkusza którą szukamy\nconst sheetName = `${currentMonth} CONTENT PLANNER`;\n// Alternatywne nazwy (na wypadek różnych formatów)\nconst sheetNameAlt1 = `${currentMonth} CONTENT CALENDAR`;\nconst sheetNameAlt2 = `${currentMonth} ${currentYear} CONTENT PLANNER`;\n\nconsole.log(`Szukam arkusza: ${sheetName}`);\n\nreturn [{\n  json: {\n    currentMonth,\n    currentYear,\n    sheetName,\n    sheetNameAlt1,\n    sheetNameAlt2,\n    monthIndex: now.getMonth(),\n    generatedAt: now.toISOString()\n  }\n}];"
+      },
+      "id": "6dd0ee0e-2cf0-4d6a-9598-d6230e2b6c90",
+      "name": "📅 Przygotuj Nazwę Miesiąca",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        2576
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "TWOJ_MASTER_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "KLIENCI",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "6ee61e11-2cf5-400f-9a50-42f94c3d9b6d",
+      "name": "👥 Czytaj Listę Klientów",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        -1632,
+        2576
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// FILTRUJ AKTYWNYCH KLIENTÓW\n// Połącz z danymi miesiąca\n// ============================================\n\nconst monthData = $('📅 Przygotuj Nazwę Miesiąca').first().json;\nconst clients   = $input.all().map(r => r.json);\n\n// Filtruj tylko aktywnych\nconst activeClients = clients.filter(c => {\n  const isActive = String(c.aktywny).toUpperCase();\n  return isActive === 'TRUE' || isActive === '1' || isActive === 'TAK';\n});\n\nconsole.log(`Klientów łącznie: ${clients.length}`);\nconsole.log(`Aktywnych: ${activeClients.length}`);\n\n// Dodaj dane miesiąca do każdego klienta\nreturn activeClients.map(client => ({\n  json: {\n    ...client,\n    ...monthData,\n    // Nadpisz sheetName jeśli klient ma własny format\n    targetSheet: client.wlasny_format_arkusza || monthData.sheetName\n  }\n}));"
+      },
+      "id": "a3b8b899-3951-4e0a-93e6-ce3940bd0199",
+      "name": "🔍 Filtruj Aktywnych Klientów",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        2576
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheet_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "a2370d13-66dd-4d25-a5f9-99a8750c320c",
+      "name": "🔎 Sprawdź Czy Arkusz Istnieje",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1200,
+        2576
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ============================================\n// ZNAJDŹ WŁAŚCIWY ARKUSZ DLA KLIENTA\n// ============================================\n\nconst clientData    = $('🔍 Filtruj Aktywnych Klientów').item.json;\nconst sheetsInfo    = item.json;\n\n// Lista wszystkich arkuszy w spreadsheet\nconst sheets = sheetsInfo.sheets || [];\nconst sheetNames = sheets.map(s => s.properties?.title || '');\n\nconsole.log(`Klient: ${clientData.nazwa}`);\nconsole.log(`Dostępne arkusze: ${sheetNames.join(', ')}`);\n\n// Szukaj arkusza dla bieżącego miesiąca\nconst targetNames = [\n  clientData.targetSheet,\n  clientData.sheetName,\n  clientData.sheetNameAlt1,\n  clientData.sheetNameAlt2,\n  // Szukaj też po samym miesiącu (case insensitive)\n  ...sheetNames.filter(n => \n    n.toUpperCase().includes(clientData.currentMonth) &&\n    n.toUpperCase().includes('PLANNER')\n  )\n];\n\n// Znajdź pierwsze dopasowanie\nlet foundSheet = null;\nfor (const target of targetNames) {\n  if (!target) continue;\n  const match = sheetNames.find(s => \n    s.toUpperCase() === target.toUpperCase()\n  );\n  if (match) {\n    foundSheet = match;\n    break;\n  }\n}\n\n// Jeśli nie znaleziono — weź najnowszy CONTENT PLANNER\nif (!foundSheet) {\n  const plannerSheets = sheetNames\n    .filter(n => n.toUpperCase().includes('PLANNER'))\n    .sort();\n  foundSheet = plannerSheets[plannerSheets.length - 1] || null;\n  console.warn(`Nie znaleziono arkusza dla ${clientData.currentMonth}, używam: ${foundSheet}`);\n}\n\nif (!foundSheet) {\n  return {\n    json: {\n      ...clientData,\n      error: true,\n      errorMsg: `Brak arkusza CONTENT PLANNER dla klienta ${clientData.nazwa}`,\n      foundSheet: null\n    }\n  };\n}\n\nconsole.log(`✅ Znaleziono arkusz: ${foundSheet}`);\n\nreturn {\n  json: {\n    ...clientData,\n    error: false,\n    foundSheet,\n    allSheets: sheetNames\n  }\n};"
+      },
+      "id": "d3912379-db57-4297-9062-6fb0faec99d2",
+      "name": "📋 Znajdź Arkusz Miesiąca",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -976,
+        2576
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "no-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f4e52e3b-9523-4a25-9a26-188585d24f52",
+      "name": "❓ Czy Arkusz Znaleziony",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -752,
+        2576
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Pobierz dane arkusza przez API Sheets\n// Przekaż parametry do następnego węzła\nconst data = item.json;\n\nreturn {\n  json: {\n    spreadsheetId: data.spreadsheet_id,\n    sheetName:     data.foundSheet,\n    klientId:      data.klient_id,\n    klientNazwa:   data.nazwa,\n    clickupListaId:data.clickup_lista_id,\n    currentMonth:  data.currentMonth,\n    currentYear:   data.currentYear,\n    // Zakres do pobrania A1:CB25 (25 wierszy, ~80 kolumn)\n    range:         `'${data.foundSheet}'!A1:CB25`\n  }\n};"
+      },
+      "id": "6fd39a5c-c9c3-474f-86d6-3983349cf502",
+      "name": "⚙️ Przygotuj Parametry Odczytu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        2496
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values/{{ encodeURIComponent($json.range) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "a6ab9f55-0ea9-47ca-8bb3-ac1e6726a08d",
+      "name": "📊 Czytaj Dane Arkusza",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -320,
+        2496
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ============================================\n// PARSUJ DANE ARKUSZA I WYODRĘBNIJ POSTY\n// ============================================\n\nconst clientMeta = $('⚙️ Przygotuj Parametry Odczytu').item.json;\nconst rawData    = item.json;\n\n// Sheets API zwraca values jako tablicę tablic\nconst values = rawData.values || [];\n\n// Zamień na obiekt z row_number\n// values[0] = wiersz 1, values[1] = wiersz 2 itd.\nfunction getRow(rowNum) {\n  return values[rowNum - 1] || [];\n}\n\n// Pobierz wartość z wiersza i kolumny (0-indexed)\nfunction getCell(rowNum, colIdx) {\n  const row = getRow(rowNum);\n  return (row[colIdx] || '').trim();\n}\n\n// ── Znajdź kolumny z datami (wiersz 5) ──────\n// Kolumny z datami to te gdzie wartość zawiera rok\nconst dateRow = getRow(5);\nconst dataCols = []  // indeksy kolumn z datami\n\nfor (let i = 0; i < dateRow.length; i++) {\n  const val = (dateRow[i] || '').trim();\n  // Kolumna z datą jeśli zawiera rok (np. 2026)\n  if (val.match(/202[0-9]/) && val.length > 5) {\n    dataCols.push(i);\n  }\n}\n\nconsole.log(`Klient: ${clientMeta.klientNazwa}`);\nconsole.log(`Znaleziono kolumn z datami: ${dataCols.length}`);\n\n// ── Parser daty PL ──────────────────────────\nconst MONTHS_PL = {\n  'stycznia':0,'lutego':1,'marca':2,'kwietnia':3,\n  'maja':4,'czerwca':5,'lipca':6,'sierpnia':7,\n  'września':8,'października':9,'listopada':10,'grudnia':11\n};\n\nfunction parseDatePL(str) {\n  if (!str) return null;\n  const m = str.match(/(\\w+),?\\s+(\\w+)\\s+(\\d{1,2}),?\\s+(\\d{4})/);\n  if (m) {\n    const mon = MONTHS_PL[m[2].toLowerCase()];\n    if (mon !== undefined) {\n      return new Date(parseInt(m[4]), mon, parseInt(m[3]));\n    }\n  }\n  return null;\n}\n\n// ── Mapowanie statusów ──────────────────────\nconst STATUS_MAP = {\n  'APPROVED':             'Zatwierdzone przez klienta',\n  'WAITING FOR APPROVAL': 'Wyslane do klienta',\n  'NEEDS EDITING':        'Poprawki zakonczone',\n  'NEEDS EDIT':           'Poprawki zakonczone',\n  'DRAFT':                'Do zrobienia',\n  'IN PROGRESS':          'W realizacji',\n};\n\nfunction mapStatus(s) {\n  return STATUS_MAP[s?.toUpperCase()?.trim()] || 'Do zrobienia';\n}\n\n// ── MAPOWANIE WIERSZY ───────────────────────\n// (numery wierszy 1-indexed)\nconst ROWS = {\n  data:        5,\n  tytul:       6,\n  typGrafiki:  7,\n  typPosta:    8,\n  linkGrafiki: 11,\n  opis:        13,\n  cta:         15,\n  hasztagi:    17,\n  status:      19,\n  notatki:     21,\n  feedback:    23,\n  taskId:      25,  // ← TASK_ID wartości\n};\n\n// ── ZBIERZ POSTY ────────────────────────────\nconst posts = [];\n\nfor (const colIdx of dataCols) {\n  const dateRaw    = getCell(ROWS.data,        colIdx);\n  const tytul      = getCell(ROWS.tytul,       colIdx);\n  const typGrafiki = getCell(ROWS.typGrafiki,  colIdx);\n  const typPosta   = getCell(ROWS.typPosta,    colIdx) || 'Post';\n  const linkGraf   = getCell(ROWS.linkGrafiki, colIdx);\n  const opis       = getCell(ROWS.opis,        colIdx);\n  const cta        = getCell(ROWS.cta,         colIdx);\n  const hasztagi   = getCell(ROWS.hasztagi,    colIdx);\n  const statusRaw  = getCell(ROWS.status,      colIdx);\n  const notatki    = getCell(ROWS.notatki,     colIdx);\n  const feedback   = getCell(ROWS.feedback,    colIdx);\n  const taskId     = getCell(ROWS.taskId,      colIdx);\n\n  // Pomiń jeśli brak treści\n  if (!tytul && !opis) continue;\n\n  // Pomiń nagłówki\n  const SKIP = ['OPIS','STATUS','HASZTAGI','CTA/LINK','NOTATKI',\n                'FEEDBACK OD KLIENTA','LINK TO GOOGLE DRIVE/FULL IMAGE'];\n  if (SKIP.includes(tytul.toUpperCase())) continue;\n\n  // Wyczyść placeholder linku\n  const cleanLink = linkGraf.toLowerCase().includes('link to google') \n    ? '' : linkGraf;\n\n  const postDateObj = parseDatePL(dateRaw);\n\n  posts.push({\n    // Identyfikatory\n    klientId:       clientMeta.klientId,\n    klientNazwa:    clientMeta.klientNazwa,\n    clickupListaId: clientMeta.clickupListaId,\n    spreadsheetId:  clientMeta.spreadsheetId,\n    sheetName:      clientMeta.sheetName,\n    colIdx,          // indeks kolumny (0-based) do zapisu task ID\n\n    // Data\n    dataRaw,\n    postDate:       postDateObj?.toISOString() || null,\n    postDateLabel:  postDateObj?.toLocaleDateString('pl-PL', {\n      weekday:'long', day:'numeric', month:'long', year:'numeric'\n    }) || dateRaw,\n    dueTimestamp:   postDateObj ? postDateObj.getTime() : null,\n\n    // Treść\n    tytul,\n    typGrafiki,\n    typPosta,\n    linkGrafiki: cleanLink,\n    opis,\n    cta,\n    hasztagi,\n\n    // Status\n    statusRaw,\n    clickupStatus: mapStatus(statusRaw),\n\n    // Task ID\n    taskId,\n    juzMaTask: !!taskId && taskId.length > 3,\n\n    // Dodatkowe\n    notatki,\n    feedback,\n\n    // Flagi\n    jestApproved:    statusRaw.toUpperCase() === 'APPROVED',\n    czekaNaAkcept:   statusRaw.toUpperCase().includes('WAITING'),\n    wymagaPoprawek:  statusRaw.toUpperCase().includes('NEEDS'),\n  });\n}\n\nconsole.log(`✅ ${clientMeta.klientNazwa}: ${posts.length} postów`);\nconsole.log(`  Nowych (bez task): ${posts.filter(p=>!p.juzMaTask).length}`);\nconsole.log(`  Approved: ${posts.filter(p=>p.jestApproved).length}`);\n\nreturn posts.map(p => ({ json: p }));"
+      },
+      "id": "9d90673f-96b4-4b62-8cfa-73c4b298bf23",
+      "name": "🔍 Parsuj Posty Klienta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        2496
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "no-task",
+              "leftValue": "={{ $json.juzMaTask }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "96154e0e-1148-4c20-a6c0-d89d66756e10",
+      "name": "🆕 Filtruj — Nowe Posty",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        128,
+        2496
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Wyciągnij ID nowego taska\nconst newTask    = item.json;\nconst postData   = $('🔍 Parsuj Posty Klienta').item.json;\n\n// Konwertuj colIdx (0-based) na notację A1\nfunction colIdxToLetter(idx) {\n  let result = '';\n  let n = idx + 1;\n  while (n > 0) {\n    n--;\n    result = String.fromCharCode(65 + (n % 26)) + result;\n    n = Math.floor(n / 26);\n  }\n  return result;\n}\n\nconst colLetter  = colIdxToLetter(postData.colIdx);\nconst cellAddr   = `${colLetter}25`;  // wiersz 25 = TASK_ID\n\nconsole.log(`✅ Task ${newTask.id} → komórka ${cellAddr} (${postData.klientNazwa})`);\n\nreturn {\n  json: {\n    newTaskId:      newTask.id,\n    newTaskUrl:     newTask.url,\n    cellAddress:    cellAddr,\n    colLetter,\n    spreadsheetId:  postData.spreadsheetId,\n    sheetName:      postData.sheetName,\n    klientNazwa:    postData.klientNazwa,\n    tytul:          postData.tytul,\n    // Range do zapisu w Sheets API\n    writeRange:     `'${postData.sheetName}'!${cellAddr}`\n  }\n};"
+      },
+      "id": "d1d63a0d-98ae-4a12-87c9-601e94a2be17",
+      "name": "🆔 Wyciągnij Task ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        2416
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.taskId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_TWOJ_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"{{ $json.clickupStatus }}\"\n}",
+        "options": {}
+      },
+      "id": "6be7a6f4-f849-4f8f-8901-316a3722e5ac",
+      "name": "🔄 Aktualizuj Status Taska",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        336,
+        2624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log błędu — arkusz nie znaleziony\nconst d = $input.first().json;\nconsole.error(`BŁĄD: ${d.errorMsg}`);\nreturn [{ json: { error: true, klient: d.nazwa, msg: d.errorMsg } }];"
+      },
+      "id": "d8aca752-6597-4dbf-9d20-526d3aba2a64",
+      "name": "🆘 Log Błędu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        2704
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "783bc32a-55b6-4f20-b0bf-7cd0e60ab746",
+      "name": "⏰ Trigger — Codziennie 7:",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2080,
+        2576
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.clickupListaId }}/task",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_TWOJ_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{{ $json.typPosta }}: {{ $json.tytul }}\",\n  \"description\": \"**Klient:** {{ $json.klientNazwa }}\\n**Data publikacji:** {{ $json.postDateLabel }}\\n**Typ:** {{ $json.typPosta }} | {{ $json.typGrafiki }}\\n\\n---\\n\\n### Opis\\n{{ $json.opis }}\\n\\n### CTA\\n{{ $json.cta }}\\n\\n### Hasztagi\\n{{ $json.hasztagi }}\\n\\n### Grafika\\n{{ $json.linkGrafiki }}\\n\\n### Notatki\\n{{ $json.notatki }}\",\n  \"status\": \"{{ $json.clickupStatus }}\",\n  \"due_date\": {{ $json.dueTimestamp || 'null' }},\n  \"notify_all\": false\n}",
+        "options": {}
+      },
+      "id": "e87749a0-89dd-423d-bfd8-ef8c15d3cfa1",
+      "name": "✅ Utwórz Task w ClickUp1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        336,
+        2416
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values/{{ encodeURIComponent($json.writeRange) }}?valueInputOption=RAW",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"range\": \"{{ $json.writeRange }}\",\n  \"majorDimension\": \"ROWS\",\n  \"values\": [[\"{{ $json.newTaskId }}\"]]\n}",
+        "options": {}
+      },
+      "id": "6eb9750a-0af3-41c2-aa79-baf8cc0e593a",
+      "name": "💾 Zapisz Task ID do Sheets1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        784,
+        2416
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "853d56aa-2995-4d0d-8a9c-515f590299be",
+      "name": "⏰ Cron — Codziennie 7:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1664,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "16KFmm7YVtXwRSFUOgSVfFv7yNTeyBK7CZB1j4t3RrWI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1897842650,
+          "mode": "list",
+          "cachedResultName": "STYCZEŃ CONTENT CALENDAR",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/16KFmm7YVtXwRSFUOgSVfFv7yNTeyBK7CZB1j4t3RrWI/edit#gid=1897842650"
+        },
+        "options": {}
+      },
+      "id": "c79483c4-385c-4792-a65a-6dc4898aae59",
+      "name": "📋 Get Master Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        -1440,
+        192
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a23e53ff-61e1-4a9f-89e2-49eb26cb5dc4",
+      "name": "🔄 SplitInBatches — Per Klient",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1216,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// PRZYGOTUJ DANE KLIENTA + WYKRYJ NAZWĘ ARKUSZA\n// ============================================\n\nconst client = $input.first().json;\n\n// Pomiń nieaktywnych\nconst isActive = String(client.aktywny || '').toUpperCase();\nif (isActive !== 'TRUE' && isActive !== '1' && isActive !== 'TAK') {\n  return [{ json: { skip: true, klient: client.nazwa } }];\n}\n\n// Generuj nazwę miesiąca\nconst MONTHS_PL = [\n  'STYCZEŃ','LUTY','MARZEC','KWIECIEŃ',\n  'MAJ','CZERWIEC','LIPIEC','SIERPIEŃ',\n  'WRZESIEŃ','PAŹDZIERNIK','LISTOPAD','GRUDZIEŃ'\n];\n\nconst now       = new Date();\nconst monthName = MONTHS_PL[now.getMonth()];\n\n// ── Format z kolumny lub domyślny ──────────\n// Klient może mieć: \"CONTENT PLANNER\" lub \"CONTENT CALENDAR\"\nconst format    = (client.format_arkusza || 'CONTENT PLANNER').trim().toUpperCase();\nconst sheetName = `${monthName} ${format}`;\n\n// Alternatywne nazwy na wypadek gdyby format był inny\nconst sheetNameAlt = format.includes('PLANNER')\n  ? `${monthName} CONTENT CALENDAR`\n  : `${monthName} CONTENT PLANNER`;\n\nconsole.log(`Klient: ${client.nazwa}`);\nconsole.log(`Szukam arkusza: ${sheetName} (alt: ${sheetNameAlt})`);\n\nreturn [{\n  json: {\n    skip:            false,\n    klientId:        client.klient_id,\n    klientNazwa:     client.nazwa,\n    spreadsheetId:   client.spreadsheet_id,\n    clickupListaId:  client.clickup_lista_id,\n    sheetName,\n    sheetNameAlt,\n    monthName,\n    rok:             now.getFullYear()\n  }\n}];"
+      },
+      "id": "1f3f115f-a6e7-4351-9007-e1501c13c770",
+      "name": "⚙️ Przygotuj Dane Klienta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -976,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "not-skip",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "89aa78af-562c-4a23-a403-13d4b846b295",
+      "name": "❓ Czy Aktywny Klient",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -800,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values/{{ encodeURIComponent(\"'\" + $json.sheetName + \"'!A1:CZ25\") }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "a5484bd2-6aeb-4f4d-8ab3-24abd89795d5",
+      "name": "📊 Get Sheet Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -592,
+        112
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// SPLIT ROWS — parsuj arkusz i wyodrębnij posty\n// Zwraca osobny item dla każdego posta\n// ============================================\n\nconst clientMeta = $('⚙️ Przygotuj Dane Klienta').first().json;\nconst sheetData  = $input.first().json;\n\n// Sheets API zwraca values[row][col]\nconst values = sheetData.values || [];\n\nfunction getCell(rowNum, colIdx) {\n  // rowNum = 1-indexed, colIdx = 0-indexed\n  const row = values[rowNum - 1] || [];\n  return (row[colIdx] || '').toString().trim();\n}\n\n// ── MAPOWANIE WIERSZY (1-indexed) ──────────\nconst ROWS = {\n  data:        5,\n  tytul:       6,\n  typGrafiki:  7,\n  typPosta:    8,\n  linkGrafiki: 11,\n  opis:        13,\n  cta:         15,\n  hasztagi:    17,\n  status:      19,\n  notatki:     21,\n  feedback:    23,\n  taskId:      25,\n};\n\n// ── ZNAJDŹ KOLUMNY Z DATAMI ─────────────────\n// Wiersz 5 zawiera daty — szukamy kolumn gdzie jest rok 202x\nconst dateRow  = values[ROWS.data - 1] || [];\nconst dataCols = [];\n\nfor (let i = 0; i < dateRow.length; i++) {\n  const val = (dateRow[i] || '').toString().trim();\n  if (val.match(/\\b202\\d\\b/) && val.length > 5) {\n    dataCols.push(i);\n  }\n}\n\nconsole.log(`${clientMeta.klientNazwa}: ${dataCols.length} kolumn z datami`);\n\n// ── PARSER DATY PL ──────────────────────────\nconst MONTHS_PL = {\n  'stycznia':0,'lutego':1,'marca':2,'kwietnia':3,\n  'maja':4,'czerwca':5,'lipca':6,'sierpnia':7,\n  'września':8,'października':9,'listopada':10,'grudnia':11\n};\n\nfunction parseDatePL(str) {\n  if (!str) return null;\n  try {\n    const m = str.match(/(\\w+),?\\s+(\\w+)\\s+(\\d{1,2}),?\\s+(\\d{4})/);\n    if (m) {\n      const mon = MONTHS_PL[m[2].toLowerCase()];\n      if (mon !== undefined) {\n        return new Date(parseInt(m[4]), mon, parseInt(m[3]));\n      }\n    }\n  } catch(e) {}\n  return null;\n}\n\n// ── MAPOWANIE STATUSÓW ──────────────────────\nconst STATUS_MAP = {\n  'APPROVED':             'Zatwierdzone przez klienta',\n  'WAITING FOR APPROVAL': 'Wyslane do klienta',\n  'NEEDS EDITING':        'Poprawki zakonczone',\n  'NEEDS EDIT':           'Poprawki zakonczone',\n  'DRAFT':                'Do zrobienia',\n  'IN PROGRESS':          'W realizacji',\n  'PUBLISHED':            'W realizacji',\n};\n\nfunction mapStatus(s) {\n  if (!s) return 'Do zrobienia';\n  return STATUS_MAP[s.toUpperCase().trim()] || 'Do zrobienia';\n}\n\n// ── KONWERSJA colIdx → litera kolumny ───────\nfunction colIdxToLetter(idx) {\n  let result = '';\n  let n = idx + 1;\n  while (n > 0) {\n    n--;\n    result = String.fromCharCode(65 + (n % 26)) + result;\n    n = Math.floor(n / 26);\n  }\n  return result;\n}\n\n// ── POMIŃ WARTOŚCI NAGŁÓWKOWE ───────────────\nconst SKIP_VALS = [\n  'OPIS','STATUS','HASZTAGI','CTA/LINK','NOTATKI',\n  'FEEDBACK OD KLIENTA','LINK TO GOOGLE DRIVE/FULL IMAGE',\n  'TASK_ID','TASK ID'\n];\n\n// ── ZBIERZ POSTY ────────────────────────────\nconst posts = [];\n\nfor (const colIdx of dataCols) {\n  const dataRaw    = getCell(ROWS.data,        colIdx);\n  const tytul      = getCell(ROWS.tytul,       colIdx);\n  const typGrafiki = getCell(ROWS.typGrafiki,  colIdx);\n  const typPostaR  = getCell(ROWS.typPosta,    colIdx);\n  const linkGraf   = getCell(ROWS.linkGrafiki, colIdx);\n  const opis       = getCell(ROWS.opis,        colIdx);\n  const cta        = getCell(ROWS.cta,         colIdx);\n  const hasztagi   = getCell(ROWS.hasztagi,    colIdx);\n  const statusRaw  = getCell(ROWS.status,      colIdx);\n  const notatki    = getCell(ROWS.notatki,     colIdx);\n  const feedback   = getCell(ROWS.feedback,    colIdx);\n  const taskId     = getCell(ROWS.taskId,      colIdx);\n\n  // Pomiń puste\n  if (!tytul && !opis) continue;\n\n  // Pomiń nagłówki\n  if (SKIP_VALS.includes(tytul.toUpperCase())) continue;\n\n  // Wyczyść placeholder linka\n  const cleanLink = linkGraf.toLowerCase().includes('link to google')\n    ? '' : linkGraf;\n\n  // Parsuj datę\n  const postDateObj  = parseDatePL(dataRaw);\n  const postDateISO  = postDateObj ? postDateObj.toISOString() : null;\n  const dueTimestamp = postDateObj ? postDateObj.getTime() : null;\n\n  // Litera kolumny do zapisu task ID\n  const colLetter  = colIdxToLetter(colIdx);\n  const writeRange = `'${clientMeta.sheetName}'!${colLetter}25`;\n\n  posts.push({\n    // ── Klient ─────────────────────────────\n    klientId:       clientMeta.klientId,\n    klientNazwa:    clientMeta.klientNazwa,\n    clickupListaId: clientMeta.clickupListaId,\n    spreadsheetId:  clientMeta.spreadsheetId,\n    sheetName:      clientMeta.sheetName,\n\n    // ── Lokalizacja w arkuszu ───────────────\n    colIdx,\n    colLetter,\n    writeRange,\n\n    // ── Data ───────────────────────────────\n    dataRaw,\n    postDate:      postDateISO,\n    postDateLabel: postDateObj\n      ? postDateObj.toLocaleDateString('pl-PL', {\n          weekday:'long', day:'numeric',\n          month:'long',  year:'numeric'\n        })\n      : dataRaw,\n    dueTimestamp,\n\n    // ── Treść ──────────────────────────────\n    tytul,\n    typGrafiki,\n    typPosta:    typPostaR || 'Post',\n    linkGrafiki: cleanLink,\n    opis,\n    cta,\n    hasztagi,\n\n    // ── Status ─────────────────────────────\n    statusRaw,\n    clickupStatus: mapStatus(statusRaw),\n\n    // ── Task ID ────────────────────────────\n    taskId,\n    juzMaTask: !!taskId && taskId.length > 3,\n\n    // ── Dodatkowe ──────────────────────────\n    notatki,\n    feedback,\n\n    // ── Flagi ──────────────────────────────\n    jestApproved:   statusRaw.toUpperCase() === 'APPROVED',\n    czekaNaAkcept:  statusRaw.toUpperCase().includes('WAITING'),\n    wymagaPoprawek: statusRaw.toUpperCase().includes('NEEDS'),\n  });\n}\n\nconsole.log(`${clientMeta.klientNazwa}: ${posts.length} postów do przetworzenia`);\n\nreturn posts.map(p => ({ json: p }));"
+      },
+      "id": "35c6a9eb-753e-4be5-9175-b548750a2333",
+      "name": "✂️ Split Rows — Parsuj Posty",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "has-task-id",
+              "leftValue": "={{ $json.juzMaTask }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "aee45b0e-a6e6-425b-8fe2-7983bc5115a3",
+      "name": "❓ IF — task_id exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -192,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.taskId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_TWOJ_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{{ $json.typPosta }}: {{ $json.tytul }}\",\n  \"status\": \"{{ $json.clickupStatus }}\",\n  \"description\": \"**Klient:** {{ $json.klientNazwa }}\\n**Data:** {{ $json.postDateLabel }}\\n**Typ:** {{ $json.typPosta }} | {{ $json.typGrafiki }}\\n\\n---\\n\\n### Opis\\n{{ $json.opis }}\\n\\n### CTA\\n{{ $json.cta }}\\n\\n### Hasztagi\\n{{ $json.hasztagi }}\\n\\n### Grafika\\n{{ $json.linkGrafiki }}\\n\\n### Notatki\\n{{ $json.notatki }}\\n\\n### Feedback\\n{{ $json.feedback }}\"\n}",
+        "options": {}
+      },
+      "id": "ca9b39f9-032e-49c7-a196-069745bb0739",
+      "name": "🔄 Update ClickUp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.clickupListaId }}/task",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_TWOJ_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{{ $json.typPosta }}: {{ $json.tytul }}\",\n  \"description\": \"**Klient:** {{ $json.klientNazwa }}\\n**Data:** {{ $json.postDateLabel }}\\n**Typ:** {{ $json.typPosta }} | {{ $json.typGrafiki }}\\n\\n---\\n\\n### Opis\\n{{ $json.opis }}\\n\\n### CTA\\n{{ $json.cta }}\\n\\n### Hasztagi\\n{{ $json.hasztagi }}\\n\\n### Grafika\\n{{ $json.linkGrafiki }}\\n\\n### Notatki\\n{{ $json.notatki }}\\n\\n### Feedback\\n{{ $json.feedback }}\",\n  \"status\": \"{{ $json.clickupStatus }}\",\n  \"due_date\": {{ $json.dueTimestamp !== null ? $json.dueTimestamp : 'null' }},\n  \"notify_all\": false\n}",
+        "options": {}
+      },
+      "id": "c4ac8e3d-383b-4790-b68b-ad65da011e73",
+      "name": "✅ Create ClickUp Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values/{{ encodeURIComponent($json.writeRange) }}?valueInputOption=RAW",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"range\": \"{{ $json.writeRange }}\",\n  \"majorDimension\": \"ROWS\",\n  \"values\": [[\"{{ $json.newTaskId }}\"]]\n}",
+        "options": {}
+      },
+      "id": "ec95418a-1bd3-4ec2-a8e8-a535e4e01a3f",
+      "name": "💾 Update Google Sheet (task_id)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Wyciągnij task ID z odpowiedzi ClickUp\n// i przygotuj dane do zapisu w Sheets\n\nconst newTask   = item.json;\nconst postData  = $('✂️ Split Rows — Parsuj Posty').item.json;\n\nconst newTaskId = newTask.id || '';\n\nconsole.log(`✅ Nowy task: ${newTaskId} | ${postData.klientNazwa} | ${postData.tytul}`);\nconsole.log(`   Zapis do: ${postData.writeRange}`);\n\nreturn {\n  json: {\n    newTaskId,\n    writeRange:    postData.writeRange,\n    spreadsheetId: postData.spreadsheetId,\n    sheetName:     postData.sheetName,\n    klientNazwa:   postData.klientNazwa,\n    tytul:         postData.tytul,\n    colLetter:     postData.colLetter,\n  }\n};"
+      },
+      "id": "901ce06c-40bf-4e86-a3cd-25b7556aab6e",
+      "name": "🆔 Wyciągnij Task ID1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        240
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "e42b8a81-e8d3-42b8-ad4b-1cbdf58690c1",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [
+        -1072,
+        -448
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "16KFmm7YVtXwRSFUOgSVfFv7yNTeyBK7CZB1j4t3RrWI",
+          "mode": "list",
+          "cachedResultName": "Developro",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/16KFmm7YVtXwRSFUOgSVfFv7yNTeyBK7CZB1j4t3RrWI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1969754086,
+          "mode": "list",
+          "cachedResultName": "STYCZEŃ CONTENT PLANNER",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/16KFmm7YVtXwRSFUOgSVfFv7yNTeyBK7CZB1j4t3RrWI/edit#gid=1969754086"
+        },
+        "options": {}
+      },
+      "id": "37149d19-cfdf-4d7c-bc59-b5150ff5a0b8",
+      "name": "Read Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        -880,
+        -448
+      ],
+      "typeVersion": 4.7,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const today = new Date().toISOString().split('T')[0];\n\nreturn items.filter(item => {\n return item.json.date === today && item.json.status === 'pending';\n});"
+      },
+      "id": "4f1df3d2-f106-4f48-8c45-4037e8cbae13",
+      "name": "Filter Today + Pending",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        -672,
+        -448
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "dbe94c81-ffc9-4b6d-9025-8b9404862b8f",
+      "name": "Split Posts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [
+        -480,
+        -448
+      ],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-webhook-url.com/post",
+        "options": {}
+      },
+      "id": "2718b994-6c52-4e48-b035-5a32fbf5019d",
+      "name": "Send Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -272,
+        -544
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "id": "5c24bbb4-a629-446a-9df0-5b764e50cf78",
+      "name": "Mark as Done",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        -272,
+        -352
+      ],
+      "typeVersion": 4.7
+    }
+  ],
+  "connections": {
+    "⏰ Trigger — Co Godzinę": {
+      "main": [
+        [
+          {
+            "node": "📊 Google Sheets — Pobierz Planer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Google Sheets — Pobierz Planer": {
+      "main": [
+        [
+          {
+            "node": "🔍 Filtruj i Przygotuj Dane",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Filtruj i Przygotuj Dane": {
+      "main": [
+        [
+          {
+            "node": "🔀 Router Akcji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 Router Akcji": {
+      "main": [
+        [
+          {
+            "node": "➕ ClickUp — Utwórz Task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "✏️ ClickUp — Zaktualizuj Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "➕ ClickUp — Utwórz Task": {
+      "main": [
+        [
+          {
+            "node": "🆔 Wyciągnij ID Nowego Taska",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✏️ ClickUp — Zaktualizuj Task": {
+      "main": [
+        [
+          {
+            "node": "📝 Przygotuj Dane Aktualizacji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🆔 Wyciągnij ID Nowego Taska": {
+      "main": [
+        [
+          {
+            "node": "✅ Sheets — Oznacz Zsynchronizowany",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📝 Przygotuj Dane Aktualizacji": {
+      "main": [
+        [
+          {
+            "node": "✅ Sheets — Oznacz Zaktualizowany",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ Trigger — Codziennie 9:00": {
+      "main": [
+        [
+          {
+            "node": "📊 Sheets — Pobierz APPROVED posty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Sheets — Pobierz APPROVED posty": {
+      "main": [
+        [
+          {
+            "node": "🔧 Przygotuj Dane Posta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔧 Przygotuj Dane Posta": {
+      "main": [
+        [
+          {
+            "node": "❓ Czy Pominąć",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Czy Pominąć": {
+      "main": [
+        [
+          {
+            "node": "📝 Log — Pominięto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📋 ClickUp — Utwórz Task Posta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 ClickUp — Utwórz Task Posta": {
+      "main": [
+        [
+          {
+            "node": "🔑 Wyciągnij Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔑 Wyciągnij Task ID": {
+      "main": [
+        [
+          {
+            "node": "✏️ Sheets — Oznacz jako Wysłane",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ Trigger — Codziennie 7:00": {
+      "main": [
+        [
+          {
+            "node": "📊 Czytaj Planer Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Czytaj Planer Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "🔍 Parsuj Strukturę Planera",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Parsuj Strukturę Planera": {
+      "main": [
+        [
+          {
+            "node": "🔎 Filtruj — Tylko Bez Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔎 Filtruj — Tylko Bez Task ID": {
+      "main": [
+        [
+          {
+            "node": "✅ Utwórz Task w ClickUp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🔄 Filtruj — Ma Task ID (aktualizuj)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Utwórz Task w ClickUp": {
+      "main": [
+        [
+          {
+            "node": "🆔 Wyciągnij Nowe Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🆔 Wyciągnij Nowe Task ID": {
+      "main": [
+        [
+          {
+            "node": "💾 Zapisz Task ID do Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Filtruj — Ma Task ID (aktualizuj)": {
+      "main": [
+        [
+          {
+            "node": "🔄 Aktualizuj Istniejący Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📅 Przygotuj Nazwę Miesiąca": {
+      "main": [
+        [
+          {
+            "node": "👥 Czytaj Listę Klientów",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "👥 Czytaj Listę Klientów": {
+      "main": [
+        [
+          {
+            "node": "🔍 Filtruj Aktywnych Klientów",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Filtruj Aktywnych Klientów": {
+      "main": [
+        [
+          {
+            "node": "🔎 Sprawdź Czy Arkusz Istnieje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔎 Sprawdź Czy Arkusz Istnieje": {
+      "main": [
+        [
+          {
+            "node": "📋 Znajdź Arkusz Miesiąca",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Znajdź Arkusz Miesiąca": {
+      "main": [
+        [
+          {
+            "node": "❓ Czy Arkusz Znaleziony",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Czy Arkusz Znaleziony": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Przygotuj Parametry Odczytu",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🆘 Log Błędu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Przygotuj Parametry Odczytu": {
+      "main": [
+        [
+          {
+            "node": "📊 Czytaj Dane Arkusza",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Czytaj Dane Arkusza": {
+      "main": [
+        [
+          {
+            "node": "🔍 Parsuj Posty Klienta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Parsuj Posty Klienta": {
+      "main": [
+        [
+          {
+            "node": "🆕 Filtruj — Nowe Posty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🆕 Filtruj — Nowe Posty": {
+      "main": [
+        [
+          {
+            "node": "✅ Utwórz Task w ClickUp1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🔄 Aktualizuj Status Taska",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🆔 Wyciągnij Task ID": {
+      "main": [
+        [
+          {
+            "node": "💾 Zapisz Task ID do Sheets1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ Trigger — Codziennie 7:": {
+      "main": [
+        [
+          {
+            "node": "📅 Przygotuj Nazwę Miesiąca",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Utwórz Task w ClickUp1": {
+      "main": [
+        [
+          {
+            "node": "🆔 Wyciągnij Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ Cron — Codziennie 7:00": {
+      "main": [
+        [
+          {
+            "node": "📋 Get Master Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Get Master Sheet": {
+      "main": [
+        [
+          {
+            "node": "🔄 SplitInBatches — Per Klient",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 SplitInBatches — Per Klient": {
+      "main": [
+        [],
+        [
+          {
+            "node": "⚙️ Przygotuj Dane Klienta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Przygotuj Dane Klienta": {
+      "main": [
+        [
+          {
+            "node": "❓ Czy Aktywny Klient",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Czy Aktywny Klient": {
+      "main": [
+        [
+          {
+            "node": "📊 Get Sheet Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🔄 SplitInBatches — Per Klient",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Get Sheet Data": {
+      "main": [
+        [
+          {
+            "node": "✂️ Split Rows — Parsuj Posty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✂️ Split Rows — Parsuj Posty": {
+      "main": [
+        [
+          {
+            "node": "❓ IF — task_id exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ IF — task_id exists": {
+      "main": [
+        [
+          {
+            "node": "🔄 Update ClickUp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "✅ Create ClickUp Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Create ClickUp Task": {
+      "main": [
+        [
+          {
+            "node": "🆔 Wyciągnij Task ID1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Update Google Sheet (task_id)": {
+      "main": [
+        [
+          {
+            "node": "🔄 SplitInBatches — Per Klient",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🆔 Wyciągnij Task ID1": {
+      "main": [
+        [
+          {
+            "node": "💾 Update Google Sheet (task_id)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sheet": {
+      "main": [
+        [
+          {
+            "node": "Filter Today + Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Today + Pending": {
+      "main": [
+        [
+          {
+            "node": "Split Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Posts": {
+      "main": [
+        [
+          {
+            "node": "Send Webhook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mark as Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "4c57cc49-9b7d-4e84-b263-795ae94d34ab",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-16T19:45:22.609Z",
+      "createdAt": "2026-04-16T19:45:22.609Z",
+      "role": "workflow:owner",
+      "workflowId": "D7UrG9EwWBNgiwmZ",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
