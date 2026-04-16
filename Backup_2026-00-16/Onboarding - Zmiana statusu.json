@@ -1,0 +1,171 @@
+{
+  "updatedAt": "2026-04-04T10:12:20.178Z",
+  "createdAt": "2026-04-04T10:12:20.005Z",
+  "id": "p1nJP0Bn20Hek86b",
+  "name": "Onboarding - Zmiana statusu",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "3f3095ec-e1c4-4272-a9eb-c3e028b8c6aa",
+      "name": "Start manualny",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "da6150d4-3539-4abb-884b-45c817eb0ffc",
+      "name": "Ustaw dane aktualizacji",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "WKLEJ_ID_SHEETS",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Klienci",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "={{ $json.Nowy_status }}",
+            "Notatki": "={{ $json.Notatka }}",
+            "Ostatnia_aktualizacja": "={{ $now.format('dd.MM.yyyy HH:mm') }}"
+          },
+          "matchingColumns": [
+            "Nazwa_firmy"
+          ]
+        },
+        "options": {}
+      },
+      "id": "01deb007-a6ad-4b7b-8e7a-39535ba21a74",
+      "name": "Zaktualizuj Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "name": "={{ 'Przygotuj strategię → ' + $('Ustaw dane aktualizacji').item.json.Nazwa_firmy }}",
+        "additionalFields": {
+          "dueDate": "={{ $now.plus(7, 'days').toMillis() }}",
+          "priority": 1
+        }
+      },
+      "id": "1c1b7568-7c60-450b-b715-9280810d24af",
+      "name": "Nowe zadanie w ClickUp",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "WKLEJ_EMAIL_ACCOUNT_MANAGERA",
+        "subject": "={{ '✅ Status zaktualizowany — ' + $('Ustaw dane aktualizacji').item.json.Nazwa_firmy }}",
+        "emailType": "text",
+        "message": "={{ 'Hej,\\n\\nStatus klienta ' + $('Ustaw dane aktualizacji').item.json.Nazwa_firmy + ' został zaktualizowany.\\n\\nNowy status: ' + $('Ustaw dane aktualizacji').item.json.Nowy_status + '\\nNotatka: ' + $('Ustaw dane aktualizacji').item.json.Notatka + '\\nData: ' + $now.format('dd.MM.yyyy HH:mm') + '\\n\\nNowe zadanie zostało dodane do ClickUp.' }}",
+        "options": {}
+      },
+      "id": "c19bff84-9078-4055-8079-1d2883fdda98",
+      "name": "Powiadomienie email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "webhookId": "ee4eab1a-3c8a-49cc-a577-430d30cbe8d7"
+    }
+  ],
+  "connections": {
+    "Start manualny": {
+      "main": [
+        [
+          {
+            "node": "Ustaw dane aktualizacji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ustaw dane aktualizacji": {
+      "main": [
+        [
+          {
+            "node": "Zaktualizuj Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zaktualizuj Sheets": {
+      "main": [
+        [
+          {
+            "node": "Nowe zadanie w ClickUp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nowe zadanie w ClickUp": {
+      "main": [
+        [
+          {
+            "node": "Powiadomienie email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "7e695479-8c5a-4e52-99c5-7e6a53fd9e93",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:12:20.008Z",
+      "createdAt": "2026-04-04T10:12:20.008Z",
+      "role": "workflow:owner",
+      "workflowId": "p1nJP0Bn20Hek86b",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
