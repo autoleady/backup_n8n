@@ -1,0 +1,1121 @@
+{
+  "updatedAt": "2026-04-17T14:15:16.221Z",
+  "createdAt": "2026-04-16T19:45:22.605Z",
+  "id": "D7UrG9EwWBNgiwmZ",
+  "name": "Planner → Auto Posts",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Po zmianie danych w googlesheetzczytuje dane i je zmienia w clickup",
+        "height": 576,
+        "width": 3408,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        480,
+        1312
+      ],
+      "typeVersion": 1,
+      "id": "870b9df7-cfc8-48ca-b0fc-a033e6df48ed",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nconsole.log('=== DEBUG KLIENT ===');\nconsole.log('spreadsheetId:', data.spreadsheetId);\nconsole.log('sheetName:', data.sheetName);\nconsole.log('clickupListaId:', data.clickupListaId);\nconsole.log('długość ID:', (data.spreadsheetId || '').length);\n\n// Walidacja\nif (!data.spreadsheetId || data.spreadsheetId.length < 10) {\n  throw new Error(`Nieprawidłowy spreadsheetId: \"${data.spreadsheetId}\"`);\n}\n\nif (!data.sheetName) {\n  throw new Error('Brak sheetName');\n}\n\nreturn [{ json: data }];"
+      },
+      "id": "db3cbc34-eb79-461d-a502-bcb8c84d3118",
+      "name": "🔍 Debug Klient",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "3328ac39-6bb5-4ff2-a74a-7bb515bebd84",
+      "name": "⏰ Cron 7:1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1ONXIcPfs-YFQI7Cl28vYHjtk-0C8UmDQTN5sUL8OPHY",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Arkusz1"
+        },
+        "options": {}
+      },
+      "id": "e25ead78-65d5-4a55-aa32-ed3358d9bad9",
+      "name": "📋 Get Master Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        928,
+        832
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "bf2f45ff-dddd-41fc-a17f-df48213f6ab8",
+      "name": "🔄 SplitInBatches3",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1152,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const client = $input.first().json;\n\nconst isActive = String(client.aktywny || '').toUpperCase().trim();\nif (isActive !== 'TRUE' && isActive !== '1' && isActive !== 'TAK') {\n  return [{ json: { __skip: true, powod: 'nieaktywny', klient: client.nazwa } }];\n}\n\nif (!client.spreadsheet_id || !client.clickup_lista_id) {\n  return [{ json: { __skip: true, powod: 'brak spreadsheet_id lub clickup_lista_id', klient: client.nazwa } }];\n}\n\nconst MONTHS_PL = [\n  'STYCZEŃ','LUTY','MARZEC','KWIECIEŃ',\n  'MAJ','CZERWIEC','LIPIEC','SIERPIEŃ',\n  'WRZESIEŃ','PAŹDZIERNIK','LISTOPAD','GRUDZIEŃ'\n];\n\nconst now = new Date();\nconst sheetName = `${MONTHS_PL[now.getMonth()]} CONTENT CALENDAR`;\n\nconsole.log(`✅ Klient: ${client.nazwa} → ${sheetName}`);\n\nreturn [{\n  json: {\n    __skip:         false,\n    klientId:       String(client.klient_id || ''),\n    klientNazwa:    String(client.nazwa || ''),\n    spreadsheetId:  String(client.spreadsheet_id || '').trim(),\n    clickupListaId: String(client.clickup_lista_id || '').trim(),\n    sheetName\n  }\n}];"
+      },
+      "id": "b25ccc2d-7d3f-4aa9-b2c3-ce8f2804c7b5",
+      "name": "⚙️ Przygotuj Klienta3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "skip-check",
+              "leftValue": "={{ $json.__skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ed747b11-2c21-48c0-89b8-c45a9c7ab00a",
+      "name": "❓ Czy Aktywny3",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1568,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values/{{ encodeURIComponent($json.sheetName + '!A1:ZZ30') }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "1e621a90-572e-4b2b-9ff8-f8711bd209c1",
+      "name": "📊 Get Sheet Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1984,
+        832
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// SPLIT ROWS — parsuj arkusz → osobny item per post\n// ============================================\n\nconst sheetResp  = $input.first().json;\nconst clientMeta = $('⚙️ Przygotuj Klienta3').first().json;\n\nconsole.log('=== SPLIT ROWS START ===');\nconsole.log('clientMeta.klientNazwa:', clientMeta.klientNazwa);\nconsole.log('sheetResp ma values:', !!sheetResp.values);\nconsole.log('sheetResp error:', sheetResp.error || 'brak');\n\n// Sprawdź czy arkusz istnieje\nif (sheetResp.error || !sheetResp.values) {\n  console.warn(`Brak arkusza dla ${clientMeta.klientNazwa}: ${clientMeta.sheetName}`);\n  return [{ json: {\n    __noData:    true,\n    klientNazwa: clientMeta.klientNazwa,\n    sheetName:   clientMeta.sheetName\n  }}];\n}\n\nconst values = sheetResp.values;\n\n// ── Pomocnicze ───────────────────────────────\n// UWAGA: numery wierszy jak w Sheets (1-based)\nfunction cell(rowNum, colIdx) {\n  const row = values[rowNum - 1] || [];\n  return (row[colIdx] || '').toString().trim();\n}\n\n// ── Mapowanie wierszy (numery jak w Google Sheets) ──\nconst R = {\n  data:        5,\n  tytul:       6,\n  typGrafiki:  7,\n  typPosta:    8,\n  linkGrafiki: 11,\n  opis:        13,\n  cta:         15,\n  hasztagi:    17,\n  status:      19,\n  notatki:     21,\n  feedback:    23,\n  taskId:      25\n};\n\n// ── Znajdź kolumny z datami ──────────────────\nconst dateRowArr = values[R.data - 1] || [];\nconst dataCols   = [];\n\nfor (let i = 0; i < dateRowArr.length; i++) {\n  const v = (dateRowArr[i] || '').toString().trim();\n  if (v.match(/202\\d/) && v.length > 5) {\n    dataCols.push(i);\n  }\n}\n\nconsole.log(`Kolumny z datami: ${dataCols.length}`);\nconsole.log(`Przykład wiersz 5: ${dateRowArr.slice(0,5).join(' | ')}`);\n\n// ── Parsowanie daty PL ───────────────────────\nconst MO = {\n  'stycznia':0,'lutego':1,'marca':2,'kwietnia':3,\n  'maja':4,'czerwca':5,'lipca':6,'sierpnia':7,\n  'wrzesnia':8,'wrzesień':8,'pazdziernika':9,'października':9,\n  'listopada':10,'grudnia':11\n};\n\nfunction parseDate(str) {\n  if (!str) return null;\n  try {\n    const normalized = str\n      .toLowerCase()\n      .replace(/ą/g,'a').replace(/ę/g,'e')\n      .replace(/ó/g,'o').replace(/ś/g,'s')\n      .replace(/ł/g,'l').replace(/ż/g,'z')\n      .replace(/ź/g,'z').replace(/ć/g,'c')\n      .replace(/ń/g,'n');\n    const m = normalized.match(/(\\d{1,2})\\s+(\\w+)\\s+(\\d{4})/);\n    if (m) {\n      const mon = MO[m[2]] ?? MO[str.toLowerCase().match(/(\\d{1,2})\\s+(\\w+)\\s+(\\d{4})/)?.[2]];\n      if (mon !== undefined) {\n        return new Date(parseInt(m[3]), mon, parseInt(m[1]));\n      }\n    }\n  } catch(e) { console.warn('parseDate error:', e.message); }\n  return null;\n}\n\n// ── Mapowanie statusów ───────────────────────\nconst SM = {\n  'APPROVED':             'Zatwierdzone przez klienta',\n  'WAITING FOR APPROVAL': 'Wyslane do klienta',\n  'NEEDS EDITING':        'Poprawki zakonczone',\n  'NEEDS EDIT':           'Poprawki zakonczone',\n  'DRAFT':                'Do zrobienia',\n  'IN PROGRESS':          'W realizacji',\n  'PUBLISHED':            'W realizacji'\n};\n\nfunction mapStatus(s) {\n  if (!s) return 'Do zrobienia';\n  return SM[s.toUpperCase().trim()] || 'Do zrobienia';\n}\n\n// ── Indeks kolumny → litera ──────────────────\nfunction colToLetter(idx) {\n  let r = '', n = idx + 1;\n  while (n > 0) {\n    n--;\n    r = String.fromCharCode(65 + (n % 26)) + r;\n    n = Math.floor(n / 26);\n  }\n  return r;\n}\n\n// ── Walidacja task_id ────────────────────────\nconst PUSTE = new Set([\n  '','brak','none','null','undefined',\n  'task_id','task id','-','—'\n]);\n\nfunction czyMaTask(id) {\n  return id.length > 0 && !PUSTE.has(id.toLowerCase());\n}\n\n// ── Buduj posty ──────────────────────────────\nconst posts = [];\n\nfor (const ci of dataCols) {\n  const tytul     = cell(R.tytul,  ci);\n  const opis      = cell(R.opis,   ci);\n  const statusRaw = cell(R.status, ci);\n  const taskId    = cell(R.taskId, ci).trim();\n\n  if (!tytul && !opis) continue;\n  if (!statusRaw)      continue;\n\n  const dataRaw    = cell(R.data,        ci);\n  const typGrafiki = cell(R.typGrafiki,  ci);\n  const typPosta   = cell(R.typPosta,    ci) || 'Post';\n  const rawLink    = cell(R.linkGrafiki, ci);\n  const cta        = cell(R.cta,        ci);\n  const hasztagi   = cell(R.hasztagi,   ci);\n  const notatki    = cell(R.notatki,    ci);\n  const feedback   = cell(R.feedback,   ci);\n\n  const cleanLink  = rawLink.toLowerCase().includes('link to google') ? '' : rawLink;\n  const dateObj    = parseDate(dataRaw);\n  const colLetter  = colToLetter(ci);\n  const juzMaTask  = czyMaTask(taskId);\n\n  console.log(`  Kolumna ${colLetter}: \"${tytul}\" | status: ${statusRaw} | taskId: \"${taskId}\" | juzMaTask: ${juzMaTask}`);\n\n  posts.push({\n    klientId:       clientMeta.klientId,\n    klientNazwa:    clientMeta.klientNazwa,\n    clickupListaId: clientMeta.clickupListaId,\n    spreadsheetId:  clientMeta.spreadsheetId,\n    sheetName:      clientMeta.sheetName,\n\n    colIdx:         ci,\n    colLetter,\n    writeRange:     `${clientMeta.sheetName}!${colLetter}25`,\n\n    dataRaw,\n    postDateISO:    dateObj ? dateObj.toISOString() : null,\n    postDateLabel:  dateObj\n      ? dateObj.toLocaleDateString('pl-PL',{\n          weekday:'long', day:'numeric',\n          month:'long',   year:'numeric'\n        })\n      : dataRaw,\n    dueTimestamp: dateObj ? dateObj.getTime() : null,\n\n    tytul, typGrafiki, typPosta,\n    linkGrafiki: cleanLink,\n    opis, cta, hasztagi,\n\n    statusRaw,\n    clickupStatus: mapStatus(statusRaw),\n\n    taskId,\n    juzMaTask,\n\n    notatki,\n    feedback,\n\n    __noData: false\n  });\n}\n\nconsole.log(`\\n📊 ${clientMeta.klientNazwa}: ${posts.length} postów`);\nconsole.log(`  Nowe:          ${posts.filter(p => !p.juzMaTask).length}`);\nconsole.log(`  Aktualizacje:  ${posts.filter(p =>  p.juzMaTask).length}`);\n\nif (posts.length === 0) {\n  return [{ json: { __noData: true, klientNazwa: clientMeta.klientNazwa } }];\n}\n\nreturn posts.map(p => ({ json: p }));"
+      },
+      "id": "51871e12-471c-417c-883d-7a2f062a9a86",
+      "name": "✂️ Split Rows3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2384,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "has-no-data",
+              "leftValue": "={{ $json.__noData }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "627c6525-c6ed-4b90-9a84-070b78be4ed2",
+      "name": "❓ Czy Są Posty3",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2608,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "task-exists",
+              "leftValue": "={{ $json.juzMaTask }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ae3074e7-5f7e-4888-b8b7-b26a8d5a0da7",
+      "name": "❓ IF task_id exists3",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2800,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.taskId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $env.CLICKUP_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{{ $json.typPosta }}: {{ $json.tytul }}\",\n  \"status\": \"{{ $json.clickupStatus }}\",\n  \"description\": \"**Klient:** {{ $json.klientNazwa }}\\n**Data:** {{ $json.postDateLabel }}\\n**Typ:** {{ $json.typPosta }} | {{ $json.typGrafiki }}\\n\\n---\\n\\n### Opis\\n{{ $json.opis }}\\n\\n### CTA\\n{{ $json.cta }}\\n\\n### Hasztagi\\n{{ $json.hasztagi }}\\n\\n### Grafika\\n{{ $json.linkGrafiki }}\\n\\n### Notatki\\n{{ $json.notatki }}\\n\\n### Feedback\\n{{ $json.feedback }}\"\n}",
+        "options": {}
+      },
+      "id": "00c1f51b-a74b-4eca-9de8-c7095d97bfd0",
+      "name": "🔄 Update ClickUp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3024,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('⚙️ Przygotuj Klienta3').item.json.clickupListaId }}/task",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  name: $('Code in JavaScript1').item.json.tytul || 'Brak tytułu',\n\n  description: `**Klient:** ${$('✂️ Split Rows3').item.json.klientNazwa}\n**Data:** ${$('Code in JavaScript1').item.json.data}\n**Typ:** ${$('Code in JavaScript1').item.json.typPosta} | ${$('Code in JavaScript1').item.json.typGrafiki}\n\n---\n\n### Opis\n${$('Code in JavaScript1').item.json.opis}\n\n### CTA\n${$('Code in JavaScript1').item.json.cta}\n\n### Hasztagi\n${$('Code in JavaScript1').item.json.hasztagi}\n\n### Grafika\n${$('Code in JavaScript1').item.json.linkGrafiki}\n\n### Notatki\n${$('Code in JavaScript1').item.json.notatki}\n\n### Feedback\n${$('Code in JavaScript1').item.json.feedback}`,\n\n  due_date: $json.dueTimestamp || null\n}) }}",
+        "options": {}
+      },
+      "id": "be25b7e7-bc03-494e-b737-5175e7ae06b6",
+      "name": "✅ Create ClickUp Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3024,
+        912
+      ],
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Tryb: runOnceForEachItem\nconst newTask  = item.json;\n\n// W runOnceForEachItem, $itemIndex = index aktualnego itemu\n// Pobierz odpowiadający post z Split Rows3 po indeksie\nconst allPosts = $('✂️ Split Rows3').all();\nconst postData = allPosts[$itemIndex]?.json;\n\nif (!postData) {\n  throw new Error(`Brak postData dla item index ${$itemIndex}. Mam ${allPosts.length} postów.`);\n}\n\nif (!newTask.id) {\n  throw new Error(`Brak ID taska dla: ${postData.tytul} — response: ${JSON.stringify(newTask).slice(0,300)}`);\n}\n\nconst colLetter  = postData.colLetter;\nconst TASKID_ROW = 25;\nconst sheetName  = postData.sheetName;\n\nif (!colLetter) {\n  throw new Error(`Brak colLetter dla \"${postData.tytul}\"`);\n}\n\n// BEZ APOSTROFÓW — encodeURIComponent załatwi polskie znaki\nconst writeRange = `${sheetName}!${colLetter}${TASKID_ROW}`;\n\nconsole.log(`✅ [${$itemIndex}] Task ${newTask.id} → ${writeRange} (${postData.tytul})`);\n\nreturn {\n  json: {\n    newTaskId:     newTask.id,\n    writeRange,\n    spreadsheetId: postData.spreadsheetId,\n    sheetName,\n    klientNazwa:   postData.klientNazwa,\n    tytul:         postData.tytul,\n    colLetter\n  }\n};"
+      },
+      "id": "26bd0c67-2c3d-4d29-826a-a52fe577416e",
+      "name": "🆔 Wyciągnij Task ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3232,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('⚙️ Przygotuj Klienta3').item.json.spreadsheetId }}/values/{{ encodeURIComponent($json.writeRange) }}?valueInputOption=RAW",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"range\": \"{{ $json.writeRange }}\",\n  \"majorDimension\": \"ROWS\",\n  \"values\": [[\"{{ $json.newTaskId }}\"]]\n}",
+        "options": {}
+      },
+      "id": "db1ca097-cba3-4813-a9bf-8a4a450f2b47",
+      "name": "💾 Update Google Sheet (task_id)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3488,
+        912
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconsole.log(`⏭️ Następny klient po: ${d.klientNazwa || d.tytul || 'nieznany'}`);\nreturn [{ json: d }];"
+      },
+      "id": "a998c3a0-2701-4d29-9e4b-45a00e2199f3",
+      "name": "➡️ Następny Klient3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3856,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==================== HELPERS ====================\n\nfunction colIndexToLetter(index) {\n  let letter = '';\n  let n = index;\n  while (n >= 0) {\n    letter = String.fromCharCode((n % 26) + 65) + letter;\n    n = Math.floor(n / 26) - 1;\n  }\n  return letter;\n}\n\nfunction parseDateToTimestamp(dateStr) {\n  if (!dateStr) return null;\n  const s = String(dateStr).trim();\n\n  const months = {\n    'stycznia': 0, 'lutego': 1, 'marca': 2, 'kwietnia': 3,\n    'maja': 4, 'czerwca': 5, 'lipca': 6, 'sierpnia': 7,\n    'września': 8, 'października': 9, 'listopada': 10, 'grudnia': 11\n  };\n\n  // \"środa, kwietnia 1, 2026\" lub \"kwietnia 1, 2026\"\n  const polishMatch = s.match(/(stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|września|października|listopada|grudnia)\\s+(\\d{1,2}),?\\s+(\\d{4})/i);\n  if (polishMatch) {\n    const [, monthName, day, year] = polishMatch;\n    const date = new Date(Number(year), months[monthName.toLowerCase()], Number(day));\n    return isNaN(date) ? null : date.getTime();\n  }\n\n  const m = s.match(/^(\\d{1,2})[.\\-/](\\d{1,2})[.\\-/](\\d{2,4})$/);\n  if (m) {\n    let [, d, mo, y] = m;\n    if (y.length === 2) y = '20' + y;\n    const date = new Date(Number(y), Number(mo) - 1, Number(d));\n    return isNaN(date) ? null : date.getTime();\n  }\n\n  return null;\n}\n\n// ==================== KONFIG ====================\n\nconst FIELD_ROWS = {\n  data:        4,   // wiersz 5\n  tytul:       5,   // wiersz 6\n  typGrafiki:  6,   // wiersz 7\n  typPosta:    7,   // wiersz 8\n  linkGrafiki: 10,  // wiersz 11\n  opis:        12,  // wiersz 13\n  cta:         14,  // wiersz 15\n  hasztagi:    16,  // wiersz 17\n  status:      18,  // wiersz 19\n  notatki:     20,  // wiersz 21\n  feedback:    22,  // wiersz 23\n  taskId:      24,  // wiersz 25\n};\n\nconst START_COL = 1;\n\n// ==================== LOGIKA ====================\n\nconst input = $input.first().json;\n\nlet rows = [];\nif (Array.isArray(input)) rows = input[0]?.values || [];\nelse if (input.values) rows = input.values;\nelse if (input.valueRanges) rows = input.valueRanges[0]?.values || [];\n\nif (!rows.length) {\n  return [{ json: { error: 'Brak danych w arkuszu' } }];\n}\n\nconst getCell = (rowIdx, colIdx) => {\n  const row = rows[rowIdx];\n  if (!row || colIdx >= row.length) return '';\n  const val = row[colIdx];\n  if (val === null || val === undefined) return '';\n  return String(val).trim();\n};\n\nconst maxCols = Math.max(0, ...rows.map(r => r?.length || 0));\n\nconst posts = [];\nlet currentDate = '';        // ostatnia widziana data\nlet currentDateTimestamp = null;\nlet currentDateColumn = null;\n\nfor (let col = START_COL; col < maxCols; col++) {\n  // Aktualizuj datę jeśli w tej kolumnie jest nowa\n  const dateInThisCol = getCell(FIELD_ROWS.data, col);\n  if (dateInThisCol) {\n    currentDate = dateInThisCol;\n    currentDateTimestamp = parseDateToTimestamp(dateInThisCol);\n    currentDateColumn = col;\n  }\n\n  // Zbierz pola dla tej kolumny\n  const post = {};\n  for (const [field, rowIdx] of Object.entries(FIELD_ROWS)) {\n    post[field] = getCell(rowIdx, col);\n  }\n\n  // Post musi mieć tytuł LUB opis LUB link grafiki, żeby być realnym postem\n  const isRealPost = post.tytul || post.opis || post.linkGrafiki;\n  if (!isRealPost) continue;\n\n  // Jeśli kolumna nie ma własnej daty — użyj ostatniej widzianej\n  if (!post.data) post.data = currentDate;\n\n  post.dueDate = post.data === currentDate\n    ? currentDateTimestamp\n    : parseDateToTimestamp(post.data);\n\n  post.column = col;\n  post.columnLetter = colIndexToLetter(col);\n  post.dayStartColumn = currentDateColumn;\n\n  posts.push(post);\n}\n\n// ==================== RETURN ====================\n\nif (posts.length === 0) {\n  return [{ json: { message: 'Brak postów', maxCols, rowsCount: rows.length } }];\n}\n\nreturn posts.map(post => ({ json: post }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        832
+      ],
+      "id": "25de5d54-ac6d-43b7-aeb2-6ce194597d41",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nconsole.log('=== DEBUG KLIENT ===');\nconsole.log('spreadsheetId:', data.spreadsheetId);\nconsole.log('sheetName:', data.sheetName);\nconsole.log('clickupListaId:', data.clickupListaId);\nconsole.log('długość ID:', (data.spreadsheetId || '').length);\n\n// Walidacja\nif (!data.spreadsheetId || data.spreadsheetId.length < 10) {\n  throw new Error(`Nieprawidłowy spreadsheetId: \"${data.spreadsheetId}\"`);\n}\n\nif (!data.sheetName) {\n  throw new Error('Brak sheetName');\n}\n\nreturn [{ json: data }];"
+      },
+      "id": "be9c5509-d112-4378-9189-13c1b4bb2320",
+      "name": "🔍 Debug Klient1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "77248cb0-cb0d-43db-b6b2-dd34229d3e73",
+      "name": "⏰ Cron 7:2",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        528,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1ONXIcPfs-YFQI7Cl28vYHjtk-0C8UmDQTN5sUL8OPHY",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Arkusz1"
+        },
+        "options": {}
+      },
+      "id": "706a9298-5189-4074-8d07-145c1f95e5c4",
+      "name": "📋 Get Master Sheet4",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        736,
+        1504
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "d287c752-5d6c-4e9f-b330-5c655e67a92f",
+      "name": "🔄 SplitInBatches4",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        960,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const client = $input.first().json;\n\nconst isActive = String(client.aktywny || '').toUpperCase().trim();\nif (isActive !== 'TRUE' && isActive !== '1' && isActive !== 'TAK') {\n  return [{ json: { __skip: true, powod: 'nieaktywny', klient: client.nazwa } }];\n}\n\nif (!client.spreadsheet_id || !client.clickup_lista_id) {\n  return [{ json: { __skip: true, powod: 'brak spreadsheet_id lub clickup_lista_id', klient: client.nazwa } }];\n}\n\nconst MONTHS_PL = [\n  'STYCZEŃ','LUTY','MARZEC','KWIECIEŃ',\n  'MAJ','CZERWIEC','LIPIEC','SIERPIEŃ',\n  'WRZESIEŃ','PAŹDZIERNIK','LISTOPAD','GRUDZIEŃ'\n];\n\nconst now = new Date();\nconst sheetName = `${MONTHS_PL[now.getMonth()]} CONTENT CALENDAR`;\n\nconsole.log(`✅ Klient: ${client.nazwa} → ${sheetName}`);\n\nreturn [{\n  json: {\n    __skip:         false,\n    klientId:       String(client.klient_id || ''),\n    klientNazwa:    String(client.nazwa || ''),\n    spreadsheetId:  String(client.spreadsheet_id || '').trim(),\n    clickupListaId: String(client.clickup_lista_id || '').trim(),\n    sheetName\n  }\n}];"
+      },
+      "id": "a20c342d-48ac-480e-a22d-6e1b3a32f4f4",
+      "name": "⚙️ Przygotuj Klienta4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "skip-check",
+              "leftValue": "={{ $json.__skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6c7a2bf2-bb87-41c6-8454-7e918e540b7e",
+      "name": "❓ Czy Aktywny4",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1376,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values/{{ encodeURIComponent($json.sheetName + '!A1:ZZ30') }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "7a90de49-cc9b-4e80-9bff-a50b3f97b100",
+      "name": "📊 Get Sheet Data4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1792,
+        1504
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.taskId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  name: $json.typPosta + ': ' + ($json.tytul || $json.opis?.slice(0, 60) || 'Brak tytułu'),\n\n  description: `**Klient:** ${$json.klientNazwa}\n**Data:** ${$json.postDateLabel}\n**Typ:** ${$json.typPosta} | ${$json.typGrafiki}\n\n---\n\n### Opis\n${$json.opis}\n\n### CTA\n${$json.cta}\n\n### Hasztagi\n${$json.hasztagi}\n\n### Grafika\n${$json.linkGrafiki}\n\n### Notatki\n${$json.notatki}\n\n### Feedback\n${$json.feedback}`,\n\n  due_date: $json.dueTimestamp || null\n  // status USUNIĘTY — ClickUp użyje domyślnego\n}) }}",
+        "options": {}
+      },
+      "id": "96a9f3ba-9499-4081-8d23-080e8031768f",
+      "name": "🔄 Update ClickUp4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2976,
+        1392
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('⚙️ Przygotuj Klienta4').item.json.clickupListaId }}/task",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  name: $json.typPosta + ': ' + ($json.tytul || $json.opis?.slice(0, 60) || 'Brak tytułu'),\n\n  description: `**Klient:** ${$json.klientNazwa}\n**Data:** ${$json.postDateLabel}\n**Typ:** ${$json.typPosta} | ${$json.typGrafiki}\n\n---\n\n### Opis\n${$json.opis}\n\n### CTA\n${$json.cta}\n\n### Hasztagi\n${$json.hasztagi}\n\n### Grafika\n${$json.linkGrafiki}\n\n### Notatki\n${$json.notatki}\n\n### Feedback\n${$json.feedback}`,\n\n  due_date: $json.dueTimestamp || null\n  // status USUNIĘTY — ClickUp użyje domyślnego\n}) }}",
+        "options": {}
+      },
+      "id": "cf7dee82-c043-4b7b-ad2b-5b59db25b6c9",
+      "name": "✅ Create ClickUp Task4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2832,
+        1584
+      ],
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Ten node działa w trybie runOnceForEachItem\n// item = aktualny task z ClickUp (item.json)\n// $itemIndex = indeks obecnego itemu (0, 1, 2, ...)\n\nconst newTask = item.json;\n\nif (!newTask.id) {\n  throw new Error(`Brak ID taska — response: ${JSON.stringify(newTask).slice(0,300)}`);\n}\n\n// Pobierz WSZYSTKIE posty ze Split Rows, sparowane po indeksie\nconst allPosts = $('Code in JavaScript2').all();\nconst postData = allPosts[$itemIndex]?.json;\n\nif (!postData) {\n  throw new Error(`Brak postData dla indexu ${$itemIndex}. Dostępnych: ${allPosts.length}`);\n}\n\nif (!postData.colLetter) {\n  throw new Error(`Brak colLetter dla ${postData.tytul || '(brak tytułu)'} — keys: ${Object.keys(postData).join(', ')}`);\n}\n\n// writeRange BEZ apostrofów\nconst writeRange = `${postData.sheetName}!${postData.colLetter}25`;\n\nconsole.log(`✅ [${$itemIndex}] Task ${newTask.id} | ${postData.typPosta}: ${postData.tytul || '(brak tytułu)'} → ${writeRange}`);\n\nreturn {\n  json: {\n    newTaskId:     newTask.id,\n    writeRange,\n    spreadsheetId: postData.spreadsheetId,\n    sheetName:     postData.sheetName,\n    klientNazwa:   postData.klientNazwa,\n    tytul:         postData.tytul,\n    typPosta:      postData.typPosta,\n    colLetter:     postData.colLetter,\n    itemIndex:     $itemIndex\n  }\n};"
+      },
+      "id": "16f72dbe-a3d4-444e-b67c-76e0ba1aff5b",
+      "name": "🆔 Wyciągnij Task ID1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3040,
+        1584
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('⚙️ Przygotuj Klienta4').item.json.spreadsheetId }}/values/{{ encodeURIComponent($json.writeRange) }}?valueInputOption=RAW",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"range\": \"{{ $json.writeRange }}\",\n  \"majorDimension\": \"ROWS\",\n  \"values\": [[\"{{ $json.newTaskId }}\"]]\n}",
+        "options": {}
+      },
+      "id": "28e5d12e-c52c-4377-9e0e-3cde5234cf46",
+      "name": "💾 Update Google Sheet (task_id)4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3296,
+        1584
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconsole.log(`⏭️ Następny klient po: ${d.klientNazwa || d.tytul || 'nieznany'}`);\nreturn [{ json: d }];"
+      },
+      "id": "5c98c56c-dff2-4400-bb0d-30474bd8c548",
+      "name": "➡️ Następny Klient4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3664,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sheetResp  = $input.first().json;\nconst clientMeta = $('⚙️ Przygotuj Klienta4').first().json;\n\nconsole.log('=== PARSE START ===');\nconsole.log('Klient:', clientMeta.klientNazwa);\n\nif (sheetResp.error || !sheetResp.values) {\n  return [{\n    json: {\n      __noData:    true,\n      klientNazwa: clientMeta.klientNazwa,\n      sheetName:   clientMeta.sheetName\n    }\n  }];\n}\n\nconst rows = sheetResp.values;\n\nconst R = {\n  data: 4, tytul: 5, typGrafiki: 6, typPosta: 7,\n  linkGrafiki: 10, opis: 12, cta: 14, hasztagi: 16,\n  status: 18, notatki: 20, feedback: 22, taskId: 24,\n};\n\nfunction colToLetter(idx) {\n  let r = '', n = idx + 1;\n  while (n > 0) { n--; r = String.fromCharCode(65 + (n % 26)) + r; n = Math.floor(n / 26); }\n  return r;\n}\n\nfunction cell(rowIdx, colIdx) {\n  const row = rows[rowIdx];\n  if (!row || colIdx >= row.length) return '';\n  const val = row[colIdx];\n  if (val === null || val === undefined) return '';\n  return String(val).trim();\n}\n\nconst MO = {\n  'stycznia':0,'lutego':1,'marca':2,'kwietnia':3,\n  'maja':4,'czerwca':5,'lipca':6,'sierpnia':7,\n  'września':8,'października':9,'listopada':10,'grudnia':11\n};\n\nfunction parseDate(str) {\n  if (!str) return null;\n  const m = String(str).toLowerCase().match(\n    /(stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|września|października|listopada|grudnia)\\s+(\\d{1,2}),?\\s+(\\d{4})/i\n  );\n  if (m) {\n    const mon = MO[m[1].toLowerCase()];\n    if (mon !== undefined) return new Date(Number(m[3]), mon, Number(m[2]));\n  }\n  return null;\n}\n\nconst SM = {\n  'APPROVED':             'Zatwierdzone przez klienta',\n  'WAITING FOR APPROVAL': 'Wyslane do klienta',\n  'NEEDS EDITING':        'Poprawki zakonczone',\n  'DRAFT':                'Do zrobienia',\n  'IN PROGRESS':          'W realizacji',\n  'PUBLISHED':            'W realizacji'\n};\n\nconst PUSTE = new Set(['','brak','none','null','undefined','task_id','task id','-','—','#ref!']);\nconst czyMaTask = id => id.length > 0 && !PUSTE.has(id.toLowerCase());\n\nconst maxCols = Math.max(0, ...rows.map(r => r?.length || 0));\nconst posts = [];\nlet currentDate = '', currentDateObj = null;\n\nfor (let col = 1; col < maxCols; col++) {\n  const dateInCol = cell(R.data, col);\n  if (dateInCol) {\n    currentDate    = dateInCol;\n    currentDateObj = parseDate(dateInCol);\n  }\n\n  const tytul     = cell(R.tytul,  col);\n  const opis      = cell(R.opis,   col);\n  const linkRaw   = cell(R.linkGrafiki, col);\n  const typPosta  = cell(R.typPosta, col);\n  const typGraf   = cell(R.typGrafiki, col);\n  const statusRaw = cell(R.status, col);\n  const taskId    = cell(R.taskId, col);\n\n  // 🔥 FIX: Rygorystyczny filtr realnego posta\n  const realTytul = tytul && tytul !== '-';\n  const realOpis  = opis  && opis  !== '-';\n  const realLink  = linkRaw && !linkRaw.toLowerCase().includes('link to google');\n  const realTyp   = typPosta && typPosta !== '-';\n\n  // Post MUSI mieć realną treść I typ posta\n  if (!realTyp) continue;\n  if (!realTytul && !realOpis && !realLink) continue;\n\n  const cta      = cell(R.cta,      col);\n  const hasztagi = cell(R.hasztagi, col);\n  const notatki  = cell(R.notatki,  col);\n  const feedback = cell(R.feedback, col);\n\n  const cleanLink = realLink ? linkRaw : '';\n  const colLetter = colToLetter(col);\n  const juzMaTask = czyMaTask(taskId);\n\n  console.log(`  ${colLetter}: \"${tytul || opis?.slice(0,40)}\" | ${typPosta} | taskId: \"${taskId}\"`);\n\n  posts.push({\n    klientId:       clientMeta.klientId,\n    klientNazwa:    clientMeta.klientNazwa,\n    clickupListaId: clientMeta.clickupListaId,\n    spreadsheetId:  clientMeta.spreadsheetId,\n    sheetName:      clientMeta.sheetName,\n\n    colIdx:     col,\n    colLetter,\n    writeRange: `${clientMeta.sheetName}!${colLetter}25`,\n\n    dataRaw:       currentDate,\n    postDateISO:   currentDateObj ? currentDateObj.toISOString() : null,\n    postDateLabel: currentDateObj\n      ? currentDateObj.toLocaleDateString('pl-PL', { weekday:'long', day:'numeric', month:'long', year:'numeric' })\n      : currentDate,\n    dueTimestamp: currentDateObj ? currentDateObj.getTime() : null,\n\n    tytul,\n    typGrafiki: typGraf,\n    typPosta,\n    linkGrafiki: cleanLink,\n    opis, cta, hasztagi, notatki, feedback,\n\n    statusRaw,\n    clickupStatus: SM[statusRaw?.toUpperCase()?.trim()] || 'Do zrobienia',\n\n    taskId,\n    juzMaTask,\n\n    __noData: false\n  });\n}\n\nconsole.log(`📊 ${clientMeta.klientNazwa}: ${posts.length} REALNYCH postów`);\n\nif (posts.length === 0) {\n  return [{ json: { __noData: true, klientNazwa: clientMeta.klientNazwa } }];\n}\n\nreturn posts.map(p => ({ json: p }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        1504
+      ],
+      "id": "a9ee83a4-287b-4ef9-9cd4-ded4402deb5f",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "task-exists",
+              "leftValue": "={{ $json.juzMaTask }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c5d89ce5-350b-4e2c-9a1a-4dae5b5f6535",
+      "name": "❓ IF task_id exists4",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2368,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "has-no-data",
+              "leftValue": "={{ $json.juzMaTask }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0edc80d0-11ae-4460-92d1-7e67701d7386",
+      "name": "❓ Czy Są Posty4",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2304,
+        1152
+      ]
+    }
+  ],
+  "connections": {
+    "🔍 Debug Klient": {
+      "main": [
+        [
+          {
+            "node": "📊 Get Sheet Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ Cron 7:1": {
+      "main": [
+        [
+          {
+            "node": "📋 Get Master Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Get Master Sheet": {
+      "main": [
+        [
+          {
+            "node": "🔄 SplitInBatches3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 SplitInBatches3": {
+      "main": [
+        [],
+        [
+          {
+            "node": "⚙️ Przygotuj Klienta3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Przygotuj Klienta3": {
+      "main": [
+        [
+          {
+            "node": "❓ Czy Aktywny3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Czy Aktywny3": {
+      "main": [
+        [
+          {
+            "node": "🔍 Debug Klient",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🔄 SplitInBatches3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Get Sheet Data": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✂️ Split Rows3": {
+      "main": [
+        [
+          {
+            "node": "❓ Czy Są Posty3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Czy Są Posty3": {
+      "main": [
+        [
+          {
+            "node": "➡️ Następny Klient3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "❓ IF task_id exists3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ IF task_id exists3": {
+      "main": [
+        [
+          {
+            "node": "🔄 Update ClickUp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "✅ Create ClickUp Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Update ClickUp": {
+      "main": [
+        [
+          {
+            "node": "➡️ Następny Klient3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Create ClickUp Task": {
+      "main": [
+        [
+          {
+            "node": "🆔 Wyciągnij Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🆔 Wyciągnij Task ID": {
+      "main": [
+        [
+          {
+            "node": "💾 Update Google Sheet (task_id)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Update Google Sheet (task_id)": {
+      "main": [
+        [
+          {
+            "node": "➡️ Następny Klient3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "✂️ Split Rows3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "➡️ Następny Klient3": {
+      "main": [
+        [
+          {
+            "node": "🔄 SplitInBatches3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Debug Klient1": {
+      "main": [
+        [
+          {
+            "node": "📊 Get Sheet Data4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ Cron 7:2": {
+      "main": [
+        [
+          {
+            "node": "📋 Get Master Sheet4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Get Master Sheet4": {
+      "main": [
+        [
+          {
+            "node": "🔄 SplitInBatches4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 SplitInBatches4": {
+      "main": [
+        [],
+        [
+          {
+            "node": "⚙️ Przygotuj Klienta4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Przygotuj Klienta4": {
+      "main": [
+        [
+          {
+            "node": "❓ Czy Aktywny4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Czy Aktywny4": {
+      "main": [
+        [
+          {
+            "node": "🔍 Debug Klient1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🔄 SplitInBatches4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Get Sheet Data4": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Update ClickUp4": {
+      "main": [
+        [
+          {
+            "node": "➡️ Następny Klient4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Create ClickUp Task4": {
+      "main": [
+        [
+          {
+            "node": "🆔 Wyciągnij Task ID1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🆔 Wyciągnij Task ID1": {
+      "main": [
+        [
+          {
+            "node": "💾 Update Google Sheet (task_id)4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Update Google Sheet (task_id)4": {
+      "main": [
+        [
+          {
+            "node": "➡️ Następny Klient4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "➡️ Następny Klient4": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "❓ IF task_id exists4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ IF task_id exists4": {
+      "main": [
+        [
+          {
+            "node": "🔄 Update ClickUp4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "✅ Create ClickUp Task4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Czy Są Posty4": {
+      "main": [
+        [],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "994be310-ca5a-40a5-abe8-725310884024",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-16T19:45:22.609Z",
+      "createdAt": "2026-04-16T19:45:22.609Z",
+      "role": "workflow:owner",
+      "workflowId": "D7UrG9EwWBNgiwmZ",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
