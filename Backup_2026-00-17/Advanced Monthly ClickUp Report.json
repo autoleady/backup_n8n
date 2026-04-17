@@ -1,0 +1,150 @@
+{
+  "updatedAt": "2026-04-04T10:07:27.992Z",
+  "createdAt": "2026-04-04T10:07:26.482Z",
+  "id": "zQqCCCpyCfpu7VdE",
+  "name": "Advanced Monthly ClickUp Report",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "e1b031f5-00fc-4c32-a91f-57eb55066378",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "filters": {}
+      },
+      "id": "c8bed9a6-1baf-4c1a-8877-9cb48f1ef8ba",
+      "name": "Get Tasks",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const lastMonthStart = new Date();\nlastMonthStart.setMonth(lastMonthStart.getMonth() - 1);\nlastMonthStart.setDate(1);\n\nconst lastMonthEnd = new Date();\nlastMonthEnd.setDate(0);\n\nreturn items.filter(item => {\n  const date = new Date(item.json.date_created);\n  return date >= lastMonthStart && date <= lastMonthEnd;\n});"
+      },
+      "id": "3702b3fa-d8d1-4536-b2e5-a6ab74705ea6",
+      "name": "Filter Last Month",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const result = {};\n\nitems.forEach(item => {\n  const status = item.json.status?.status || 'unknown';\n\n  if (!result[status]) {\n    result[status] = {\n      status,\n      count: 0\n    };\n  }\n\n  result[status].count += 1;\n});\n\nreturn Object.values(result).map(r => ({ json: r }));"
+      },
+      "id": "6e3a17ee-4521-4ca7-8bbf-465f60aeed36",
+      "name": "Aggregate by Status",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        608,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": "YOUR_SPREADSHEET_ID",
+        "range": "Raporty!A:C",
+        "options": {}
+      },
+      "id": "53a0a6ef-ca51-4a69-93a8-4696637d5d1f",
+      "name": "Save to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 2,
+      "position": [
+        800,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Tasks": {
+      "main": [
+        [
+          {
+            "node": "Filter Last Month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Last Month": {
+      "main": [
+        [
+          {
+            "node": "Aggregate by Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate by Status": {
+      "main": [
+        [
+          {
+            "node": "Save to Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "c245c8d9-134a-4d2a-9442-e1a1dd771b7d",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:07:26.485Z",
+      "createdAt": "2026-04-04T10:07:26.485Z",
+      "role": "workflow:owner",
+      "workflowId": "zQqCCCpyCfpu7VdE",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
