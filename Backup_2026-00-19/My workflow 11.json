@@ -1,0 +1,970 @@
+{
+  "updatedAt": "2026-04-18T18:52:29.289Z",
+  "createdAt": "2026-04-18T15:10:03.725Z",
+  "id": "cT3BMM7Q8gOGc8DD",
+  "name": "My workflow 11",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 13 * * *"
+            }
+          ]
+        }
+      },
+      "id": "5a5c4182-cafb-41a7-b3de-352f121cbfa4",
+      "name": "SCHEDULER - 13:00 Raport Połówkowy",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 16 * * *"
+            }
+          ]
+        }
+      },
+      "id": "e79d7d56-40ef-4c71-b8e7-d76625aba726",
+      "name": "SCHEDULER - 16:30 Raport Końcowy",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        368
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nreturn [{\n  json: {\n    typRaportu: 'polowkowy',\n    tytul: '☀️ Czas na Raport Połówkowy!',\n    deadline: '13:30',\n    webhookUrl: 'https://TWOJ-N8N.app/webhook/raport-polowkowy',\n    listId: '901522609104',\n    statusFiltr: ['ETAP 1-2', 'ETAP 3-4'],\n    sprawdzPole: 'Raport Połówkowy Oddany',\n    dataStr: now.toLocaleDateString('pl-PL'),\n    timeStr: '13:00',\n    zarzadEmail: 'autoleads@gmail.com',\n    mgrEmail: 'testautoleads@gmail.com',\n    sysEmail: 'testautoleads@gmail.com',\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "18445dd8-1473-43b1-9948-5d66036b1945",
+      "name": "SETUP - Raport Połówkowy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nreturn [{\n  json: {\n    typRaportu: 'koncowy',\n    tytul: '🌆 Czas na Raport Końcowy!',\n    deadline: '17:00',\n    webhookUrl: 'https://TWOJ-N8N.app/webhook/raport-koncowy',\n    listId: '901522609104',\n    statusFiltr: ['ETAP 1-2', 'ETAP 3-4', 'ETAP 5'],\n    sprawdzPole: 'Raport Końcowy Oddany',\n    dataStr: now.toLocaleDateString('pl-PL'),\n    timeStr: '16:30',\n    zarzadEmail: 'autoleads@gmail.com',\n    mgrEmail: 'testautoleads@gmail.com',\n    sysEmail: 'testautoleads@gmail.com',\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "014cb6e4-2e28-4a34-b77b-108935b768b7",
+      "name": "SETUP - Raport Końcowy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        368
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "false"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 1-2"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 3-4"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 5"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 6"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6ca1b5ca-20da-4658-86ff-44c68f471b64",
+      "name": "CLICKUP - Pobierz Taski do Raportu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        336,
+        368
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LJcXaUcjE7gmtQIs",
+          "name": "Header Auth account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $input.first().json;\n\n// Sprawdź czy to dane z ClickUp czy config\n// Jeśli tasks istnieje to są to dane z ClickUp\nconst tasks = cfg.tasks || [];\n\n// Pobierz config z poprzedniego noda\nconst setupData = $('SETUP - Raport Połówkowy').item?.json || \n                   {};\n\nconst bezRaportu = [];\n\ntasks.forEach(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => {\n    cf[f.name] = f.value;\n  });\n\n  const imie = task.name.split(' | ')[0];\n  const email = cf['Email Pracownika'] || setupData.mgrEmail;\n  const gPrzyjscia = cf['Godzina Przyjścia'] || cf['Godzina Przyjscia'];\n  \n  // Sprawdź czy raport oddany\n  const rapOddany = setupData.typRaportu === 'polowkowy'\n    ? (cf['Raport Połówkowy Oddany'] === true || cf['Raport Polowkowy Oddany'] === true)\n    : (cf['Raport Końcowy Oddany'] === true || cf['Raport Koncowy Oddany'] === true);\n\n  if (gPrzyjscia && !rapOddany) {\n    bezRaportu.push({\n      taskId: task.id,\n      taskUrl: task.url,\n      imie,\n      email,\n      gPrzyjscia\n    });\n  }\n});\n\nreturn bezRaportu.map(p => ({\n  json: {\n    ...setupData,\n    ...p,\n    lacznie: bezRaportu.length\n  }\n}));\n"
+      },
+      "id": "d2c8f6ea-e6b6-45f6-af25-166aac05854c",
+      "name": "FILTRUJ - Kto Nie Oddał Raportu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.tytul }} - Deadline: {{ $json.deadline }}",
+        "options": {}
+      },
+      "id": "092fae05-34e1-487d-ab46-dbc8b984bbd3",
+      "name": "EMAIL - Przypomnienie do Pracownika",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        800,
+        64
+      ],
+      "webhookId": "69c12c42-13b8-4695-b37b-a933e79b756c"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Zbierz wszystkich bez raportu w jeden email do managera\nconst allItems = $input.all();\nif (allItems.length === 0) return [];\n\nconst cfg = allItems[0].json;\nconst lista = allItems.map(item => item.json);\n\nconst listaHTML = lista.map(p =>\n  `<tr>\n    <td style=\"padding:8px;border-bottom:1px solid #eee;\">${p.imie}</td>\n    <td style=\"padding:8px;border-bottom:1px solid #eee;\">${p.gPrzyjscia}</td>\n    <td style=\"padding:8px;border-bottom:1px solid #eee;\">\n      <a href=\"${p.taskUrl}\" style=\"color:#667eea;\">Zobacz task</a>\n    </td>\n  </tr>`\n).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial;max-width:600px;margin:0 auto;\">\n<div style=\"background:#e74c3c;color:white;padding:20px;border-radius:10px 10px 0 0;\">\n  <h2 style=\"margin:0;\">📋 Brak Raportów - Alert Managera</h2>\n  <p style=\"opacity:0.9;\">${cfg.typRaportu === 'polowkowy' ? 'Raport Połówkowy' : 'Raport Końcowy'} | ${cfg.dataStr} | ${cfg.timeStr}</p>\n</div>\n<div style=\"background:white;padding:20px;border:1px solid #eee;\">\n  <p><b>${lista.length} osób</b> nie oddało raportu:</p>\n  <table style=\"width:100%;border-collapse:collapse;\">\n    <thead>\n      <tr style=\"background:#f8f9fa;\">\n        <th style=\"padding:8px;text-align:left;\">Pracownik</th>\n        <th style=\"padding:8px;text-align:left;\">Godzina przyjścia</th>\n        <th style=\"padding:8px;text-align:left;\">Task</th>\n      </tr>\n    </thead>\n    <tbody>${listaHTML}</tbody>\n  </table>\n</div>\n<div style=\"background:#f8f9fa;padding:10px;text-align:center;border:1px solid #eee;border-radius:0 0 10px 10px;\">\n  <small style=\"color:#888;\">Auto-alert systemu | ${cfg.dataStr}</small>\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...cfg,\n    emailHTML: html,\n    emailSubject: `📋 BRAK RAPORTÓW | ${lista.length} osób | ${cfg.typRaportu === 'polowkowy' ? 'Połówkowy' : 'Końcowy'} | ${cfg.dataStr}`,\n    liczbaOsob: lista.length\n  }\n}];\n"
+      },
+      "id": "07bedc58-8b87-4718-b9b5-aabd6397a7d7",
+      "name": "BUDUJ - Email dla Managera i Zarządu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "testautoleads@gmail.com",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "d6bee0df-e222-4609-a6f9-0d9a3360cc9f",
+      "name": "EMAIL - Alert Brak Raportu do Managera",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        128
+      ],
+      "webhookId": "a812d25b-9b16-46db-8c1f-491c4e06dc13"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "autoleads@gmail.com",
+        "subject": "=🚨 ZARZĄD - {{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "1d442d59-fa07-4c80-98b8-0d3ee9a039c6",
+      "name": "EMAIL - Alert Brak Raportu do Zarządu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        320
+      ],
+      "webhookId": "d5198d36-7b24-4dd5-b059-f863a94f0cdd"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "testautoleads@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "options": {}
+      },
+      "id": "39ffdc00-eb54-4ab1-87c5-7f29b7c98fe7",
+      "name": "EMAIL - Raport do Managera",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        192
+      ],
+      "webhookId": "07b73511-dbc3-435f-bfe5-b1a658171cb9"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sysEmail }}",
+        "toEmail": "autoleads@gmail.com",
+        "subject": "=📊 ZARZĄD - {{ $json.subject }}",
+        "options": {}
+      },
+      "id": "3af1fc79-64a8-475b-a800-7b6341e2896a",
+      "name": "EMAIL - Raport do Zarządu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        352
+      ],
+      "webhookId": "1659b29f-cf0b-437a-b0bc-7dd612692876"
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $input.first().json;\n\n// Sprawdź czy to dane z ClickUp czy config\n// Jeśli tasks istnieje to są to dane z ClickUp\nconst tasks = cfg.tasks || [];\n\n// Pobierz config z poprzedniego noda\nconst setupData = $('SETUP - Raport Końcowy').item?.json || \n                   {};\n\nconst bezRaportu = [];\n\ntasks.forEach(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => {\n    cf[f.name] = f.value;\n  });\n\n  const imie = task.name.split(' | ')[0];\n  const email = cf['Email Pracownika'] || setupData.mgrEmail;\n  const gPrzyjscia = cf['Godzina Przyjścia'] || cf['Godzina Przyjscia'];\n  \n  // Sprawdź czy raport oddany\n  const rapOddany = setupData.typRaportu === 'polowkowy'\n    ? (cf['Raport Połówkowy Oddany'] === true || cf['Raport Polowkowy Oddany'] === true)\n    : (cf['Raport Końcowy Oddany'] === true || cf['Raport Koncowy Oddany'] === true);\n\n  if (gPrzyjscia && !rapOddany) {\n    bezRaportu.push({\n      taskId: task.id,\n      taskUrl: task.url,\n      imie,\n      email,\n      gPrzyjscia\n    });\n  }\n});\n\nreturn bezRaportu.map(p => ({\n  json: {\n    ...setupData,\n    ...p,\n    lacznie: bezRaportu.length\n  }\n}));\n"
+      },
+      "id": "6e70f2e7-aa0b-4b81-a712-f2572a257f36",
+      "name": "FILTRUJ - Kto Nie Oddał Raportu1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        368
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "false"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 1-2"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 3-4"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 5"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 6"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8c05c14f-1540-4eb6-a661-f22a22e37b7a",
+      "name": "CLICKUP - Pobierz Taski do Raportu1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        336,
+        64
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LJcXaUcjE7gmtQIs",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Zarys do pelnego projektu\n",
+        "height": 384,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1200,
+        112
+      ],
+      "typeVersion": 1,
+      "id": "336b100c-9105-47e9-9dc5-720c28ba1bd5",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Sprawdzenie czy są raporty poludniowe i koncowe",
+        "height": 496,
+        "width": 1232
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -112,
+        16
+      ],
+      "typeVersion": 1,
+      "id": "ddac40be-4753-4f48-8ab1-a15cbf12676f",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "clickup-status-change",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "56c959e6-e23e-4495-bca4-8f07f2c0e2f6",
+      "name": "Webhook - ClickUp Status Change",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -544,
+        816
+      ],
+      "webhookId": "clickup-status-change"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Odbierz dane z webhooka ClickUp\nconst body = $json.body || $json;\n\n// ClickUp wysyła event przy zmianie statusu\nconst eventType = body.event;\nconst taskData = body.task_id ? body : (body.history_items?.[0] || {});\n\n// Pobierz ID taska i nowy status\nconst taskId = body.task_id || taskData.task?.id;\nconst newStatus = body.history_items?.[0]?.after?.status?.toLowerCase() || \n                  body.status?.toLowerCase() || \n                  '';\n\n// Sprawdź czy to zdarzenie zmiany statusu\nconst isStatusChange = eventType === 'taskStatusUpdated' || \n                       body.history_items?.[0]?.field === 'status';\n\n// Sprawdź czy nowy status to 'zakończone'\n// WAŻNE: Zmień 'done' na dokładną nazwę Twojego statusu!\nconst targetStatuses = ['done', 'zakończone', 'complete', 'closed', 'zakonczone'];\nconst isCompleted = targetStatuses.some(s => newStatus.includes(s));\n\nconsole.log(`Task ID: ${taskId}, Status: ${newStatus}, IsCompleted: ${isCompleted}`);\n\nreturn [{\n  json: {\n    task_id: taskId,\n    new_status: newStatus,\n    is_completed: isCompleted,\n    is_status_change: isStatusChange,\n    raw_event: eventType\n  }\n}];"
+      },
+      "id": "9af48a05-260e-4ffc-b2e1-5ee560fcea81",
+      "name": "Parsuj Webhook ClickUp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        816
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-001",
+              "leftValue": "={{ $json.is_completed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            },
+            {
+              "id": "condition-002",
+              "leftValue": "={{ $json.task_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5c3fa874-264c-41e1-93ff-9a220a784709",
+      "name": "Czy Status = Zakończone?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        816
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.task_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "TWOJ_CLICKUP_API_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6478fbe5-2a60-463c-ad5c-e5e030bb65b3",
+      "name": "Pobierz Pełne Dane Taska",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        112,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Przygotuj dane do skopiowania do archiwum\nconst task = $json;\nconst now = new Date();\nconst dateStr = now.toLocaleDateString('pl-PL', {\n  day: '2-digit',\n  month: '2-digit',\n  year: 'numeric'\n});\nconst timeStr = now.toLocaleTimeString('pl-PL', {\n  hour: '2-digit',\n  minute: '2-digit'\n});\n\n// Przygotuj custom fields do skopiowania\nconst customFields = task.custom_fields?.map(field => {\n  // Pomijamy pola bez wartości\n  if (field.value === null || field.value === undefined) return null;\n  return {\n    id: field.id,\n    value: field.value\n  };\n}).filter(Boolean) || [];\n\n// Buduj obiekt nowego taska w archiwum\nconst archiveTask = {\n  name: `[ARCHIWUM ${dateStr}] ${task.name}`,\n  description: `## Zarchiwizowano: ${dateStr} o ${timeStr}\\n\\n${task.description || 'Brak opisu'}\\n\\n---\\n**Oryginalny Task ID:** ${task.id}\\n**Data zakończenia:** ${dateStr} ${timeStr}`,\n  status: 'Open',\n  priority: task.priority?.id || 3,\n  custom_fields: customFields,\n  tags: [...(task.tags?.map(t => t.name) || []), 'archiwum', dateStr]\n};\n\nreturn [{\n  json: {\n    archive_task: archiveTask,\n    original_task_id: task.id,\n    original_task_name: task.name,\n    original_list_id: task.list?.id,\n    archived_at: now.toISOString()\n  }\n}];"
+      },
+      "id": "e0207827-16a2-4ec3-bc6c-f53e49258f8b",
+      "name": "Przygotuj Task do Archiwum",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.clickup.com/api/v2/list/TWOJE_ARCHIWUM_LIST_ID/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "TWOJ_CLICKUP_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.archive_task) }}",
+        "options": {}
+      },
+      "id": "7b977fce-49ee-4693-b10e-a6cf2c69dd23",
+      "name": "Utwórz Task w Archiwum",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        560,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sprawdź czy archiwizacja się powiodła\nconst archivedTask = $json;\nconst prevData = $('Przygotuj Task do Archiwum').first().json;\n\nif (!archivedTask.id) {\n  throw new Error(`Błąd archiwizacji taska: ${prevData.original_task_id}`);\n}\n\nconsole.log(`Zarchiwizowano: ${prevData.original_task_name} → ${archivedTask.id}`);\n\nreturn [{\n  json: {\n    success: true,\n    original_task_id: prevData.original_task_id,\n    archive_task_id: archivedTask.id,\n    archive_task_url: archivedTask.url,\n    archived_at: prevData.archived_at\n  }\n}];"
+      },
+      "id": "11b11c9e-6a7d-405d-a18d-8af021b1ee51",
+      "name": "Weryfikuj Archiwizację",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('Weryfikuj Archiwizację').first().json.original_task_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "TWOJ_CLICKUP_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ description: `${$('Pobierz Pełne Dane Taska').first().json.description || ''}\\n\\n---\\n✅ **ZARCHIWIZOWANO**\\nLink do archiwum: ${$('Weryfikuj Archiwizację').first().json.archive_task_url}\\nData: ${new Date().toLocaleDateString('pl-PL')}` }) }}",
+        "options": {}
+      },
+      "id": "ec0c5058-6c61-4e65-ac83-f1132f18b025",
+      "name": "Dodaj Notatkę do Oryginalnego Taska",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        992,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'ok', message: 'Webhook received' }) }}",
+        "options": {}
+      },
+      "id": "252ebe9d-54dd-4d79-8dbe-bb51bf0db8d8",
+      "name": "Odpowiedz na Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        1008
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Przenoszenie do archiwum po zakonczeniu taska\n",
+        "height": 480,
+        "width": 1680,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -560,
+        656
+      ],
+      "typeVersion": 1,
+      "id": "43240186-3bb5-425c-a319-3df7447f4d02",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "Codzienne tworzenie taskow z template\n",
+        "height": 192,
+        "width": 1488,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        48,
+        1344
+      ],
+      "typeVersion": 1,
+      "id": "ef9e0889-b952-48e9-8e1e-907cfd4bbd27",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "url": "https://api.clickup.com/api/v2/list/9/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "false"
+            },
+            {
+              "name": "page",
+              "value": "0"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "TWOJ_CLICKUP_API_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fabb0442-8d3c-4737-890d-c479364aa1e3",
+      "name": "Pobierz Wszystkie Szablony",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        288,
+        1392
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LJcXaUcjE7gmtQIs",
+          "name": "Header Auth account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pobierz wszystkie taski-szablony\nconst response = $json;\nconst templates = response.tasks || [];\n\nif (templates.length === 0) {\n  throw new Error('Brak szablonow w liscie! Sprawdz TWOJA_LISTA_SZABLONOW_ID');\n}\n\nconsole.log(`Znaleziono ${templates.length} szablonow`);\n\n// Przygotuj datę\nconst today = new Date();\nconst dateStr = today.toLocaleDateString('pl-PL', {\n  day: '2-digit',\n  month: '2-digit',\n  year: 'numeric'\n});\n\n// Dla każdego szablonu stwórz obiekt nowego taska\nconst newTasks = templates.map(template => {\n  \n  // Skopiuj custom fields (tylko te z wartościami)\n  const customFields = (template.custom_fields || []).map(field => {\n    if (field.value === null || field.value === undefined) return null;\n    return { id: field.id, value: field.value };\n  }).filter(Boolean);\n\n  return {\n    json: {\n      // Nowa nazwa z datą\n      name: `${template.name} - ${dateStr}`,\n      \n      // Opis z info o szablonie\n      description: `${template.description || ''}\\n\\n---\\nUtworzono z szablonu: ${template.name}\\nData: ${dateStr}`,\n      \n      // Status początkowy\n      status: 'Open',\n      \n      // Priorytet z szablonu\n      priority: template.priority?.id || 3,\n      \n      // Custom fields z szablonu\n      custom_fields: customFields,\n      \n      // Tagi z szablonu + tag z datą\n      tags: [\n        ...(template.tags?.map(t => t.name) || []),\n        dateStr\n      ],\n      \n      // Zachowaj assignees z szablonu\n      assignees: template.assignees?.map(a => a.id) || [],\n      \n      // Meta do logowania (nie idzie do ClickUp)\n      _template_id: template.id,\n      _template_name: template.name\n    }\n  };\n});\n\nconsole.log(`Przygotowano ${newTasks.length} taskow do utworzenia`);\n\nreturn newTasks;"
+      },
+      "id": "9054b431-9020-4301-ac35-a8c784bcc873",
+      "name": "Rozdziel Szablony na Osobne Itemy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        1392
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Usuń meta pola przed wysłaniem do ClickUp\nconst item = $json;\n\nconst taskPayload = {\n  name: item.name,\n  description: item.description,\n  status: item.status,\n  priority: item.priority,\n  custom_fields: item.custom_fields,\n  tags: item.tags,\n  assignees: item.assignees\n};\n\n// Zachowaj meta do logowania\nreturn [{\n  json: {\n    payload: taskPayload,\n    _template_id: item._template_id,\n    _template_name: item._template_name\n  }\n}];"
+      },
+      "id": "872ca193-b986-4614-81a8-08ee6279d111",
+      "name": "Przygotuj Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        1392
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.clickup.com/api/v2/list/TWOJA_LISTA_AKTYWNA_ID/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "TWOJ_CLICKUP_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {}
+      },
+      "id": "257202d8-9318-4f5d-9e79-b37520e57907",
+      "name": "Utwórz Task w Aktywnej Liście",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        944,
+        1392
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loguj każdy utworzony task\nconst createdTask = $json;\nconst templateName = $('Przygotuj Payload').first().json._template_name;\nconst now = new Date().toISOString();\n\nconsole.log(`[OK] ${templateName} → Task ID: ${createdTask.id}`);\n\nreturn [{\n  json: {\n    success: true,\n    template_name: templateName,\n    new_task_id: createdTask.id,\n    new_task_name: createdTask.name,\n    new_task_url: createdTask.url,\n    created_at: now\n  }\n}];"
+      },
+      "id": "3e2e0ba3-3e4d-4a8c-aa67-27d5cfc17353",
+      "name": "Loguj Każdy Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        1392
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Zbierz wszystkie wyniki z całego batcha\nconst allItems = $input.all();\n\nconst summary = {\n  total_created: allItems.length,\n  created_at: new Date().toISOString(),\n  tasks: allItems.map(item => ({\n    template: item.json.template_name,\n    task_id: item.json.new_task_id,\n    task_url: item.json.new_task_url\n  }))\n};\n\nconsole.log(`=== PODSUMOWANIE ===`);\nconsole.log(`Utworzono ${summary.total_created} taskow`);\nconsole.log(JSON.stringify(summary, null, 2));\n\nreturn [{ json: summary }];"
+      },
+      "id": "83d0eff5-efab-454e-8e40-1db09348214b",
+      "name": "Podsumowanie Całego Batcha",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        1392
+      ]
+    }
+  ],
+  "connections": {
+    "SCHEDULER - 13:00 Raport Połówkowy": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Raport Połówkowy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - 16:30 Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Raport Końcowy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Raport Połówkowy": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Taski do Raportu1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Taski do Raportu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Taski do Raportu": {
+      "main": [
+        [
+          {
+            "node": "FILTRUJ - Kto Nie Oddał Raportu1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FILTRUJ - Kto Nie Oddał Raportu": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Przypomnienie do Pracownika",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "BUDUJ - Email dla Managera i Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - Email dla Managera i Zarządu": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Alert Brak Raportu do Managera",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EMAIL - Alert Brak Raportu do Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FILTRUJ - Kto Nie Oddał Raportu1": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Przypomnienie do Pracownika",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "BUDUJ - Email dla Managera i Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Taski do Raportu1": {
+      "main": [
+        [
+          {
+            "node": "FILTRUJ - Kto Nie Oddał Raportu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - ClickUp Status Change": {
+      "main": [
+        [
+          {
+            "node": "Parsuj Webhook ClickUp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsuj Webhook ClickUp": {
+      "main": [
+        [
+          {
+            "node": "Czy Status = Zakończone?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Czy Status = Zakończone?": {
+      "main": [
+        [
+          {
+            "node": "Pobierz Pełne Dane Taska",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Odpowiedz na Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pobierz Pełne Dane Taska": {
+      "main": [
+        [
+          {
+            "node": "Przygotuj Task do Archiwum",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Przygotuj Task do Archiwum": {
+      "main": [
+        [
+          {
+            "node": "Utwórz Task w Archiwum",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Utwórz Task w Archiwum": {
+      "main": [
+        [
+          {
+            "node": "Weryfikuj Archiwizację",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weryfikuj Archiwizację": {
+      "main": [
+        [
+          {
+            "node": "Dodaj Notatkę do Oryginalnego Taska",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pobierz Wszystkie Szablony": {
+      "main": [
+        [
+          {
+            "node": "Rozdziel Szablony na Osobne Itemy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rozdziel Szablony na Osobne Itemy": {
+      "main": [
+        [
+          {
+            "node": "Przygotuj Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Przygotuj Payload": {
+      "main": [
+        [
+          {
+            "node": "Utwórz Task w Aktywnej Liście",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Utwórz Task w Aktywnej Liście": {
+      "main": [
+        [
+          {
+            "node": "Loguj Każdy Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loguj Każdy Task": {
+      "main": [
+        [
+          {
+            "node": "Podsumowanie Całego Batcha",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "cd65940e-883a-420b-b3a9-302d365e4b18",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-18T15:10:03.736Z",
+      "createdAt": "2026-04-18T15:10:03.736Z",
+      "role": "workflow:owner",
+      "workflowId": "cT3BMM7Q8gOGc8DD",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
