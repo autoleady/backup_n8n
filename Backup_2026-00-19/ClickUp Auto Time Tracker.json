@@ -1,0 +1,1522 @@
+{
+  "updatedAt": "2026-04-18T20:16:33.342Z",
+  "createdAt": "2026-04-15T19:51:43.704Z",
+  "id": "4gxoQAVkXGARL5fq",
+  "name": "ClickUp Auto Time Tracker",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 17 * * *"
+            }
+          ]
+        }
+      },
+      "id": "45e00616-45bf-4a33-9ad2-3dd02f9310b5",
+      "name": "SCHEDULER - 17:00 Raport Końcowy",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nreturn [{\n  json: {\n    listId: '901522609104',\n    listRaportyCodzienne: '901522609128',\n    token: 'pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE',\n    zarzadEmail: 'autoleady@gmail.com',\n    mgrEmail: 'testautoleady@gmail.com',\n    sysEmail: 'testautoleady@gmail.com',\n    dataStr: now.toLocaleDateString('pl-PL'),\n    dataNazwa: now.toLocaleDateString('pl-PL', {\n      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'\n    }),\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "c0fa7317-54a4-4522-8b3e-d32ff422312b",
+      "name": "SETUP - Konfiguracja Raportu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.clickup.com/api/v2/list/901522609104/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "true"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ZAKOŃCZONA"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 1-2"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 3-4"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 5"
+            },
+            {
+              "name": "statuses[]",
+              "value": "ETAP 6"
+            },
+            {
+              "name": "statuses[]",
+              "value": "WYMAGA UWAGI"
+            },
+            {
+              "name": "statuses[]",
+              "value": "OCZEKUJE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "57d938ca-cfb9-4475-b68d-13d452359eb0",
+      "name": "CLICKUP - Pobierz Wszystkie Taski",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        336,
+        -64
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LJcXaUcjE7gmtQIs",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('SETUP - Konfiguracja Raportu').item.json;\nconst tasks = $input.first().json.tasks || [];\n\nconst pracownicy = tasks.map(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => { cf[f.name] = f.value; });\n\n  const sp = parseInt(cf['Stan Początkowy'] || cf['Stan Poczatkowy'] || '0');\n  const sk = parseInt(cf['Stan Końcowy'] || cf['Stan Koncowy'] || cf['eb918b95-6861-4fe9-bdcf-d325b866042a'] || '0');\n  const s13 = parseInt(cf['Stan o 13:00'] || '0');\n  const rozdano = sk > 0 ? sp - sk : (s13 > 0 ? sp - s13 : 0);\n  const spoznMin = parseInt(cf['Spóźnienie (minuty)'] || cf['Spoznienie'] || '0');\n\n  return {\n    imie: task.name.split(' | ')[0],\n    status: task.status?.status || '—',\n    przybycie: cf['Godzina Przyjścia'] || cf['Godzina Przyjscia'] || '❌',\n    wyjscie: cf['Godzina Wyjścia'] || cf['Godzina Wyjscia'] || '—',\n    zarej: cf['Czy Zarejestrowana'] === true ? '✅' : '❌',\n    sp, s13: s13 || '—', sk: sk || '—',\n    rozdano,\n    spoznMin,\n    rapPol: (cf['Raport Połówkowy Oddany'] || cf['Raport Polowkowy Oddany']) ? '✅' : '❌',\n    rapKon: (cf['Raport Końcowy Oddany'] || cf['Raport Koncowy Oddany']) ? '✅' : '❌',\n    rapKonTresc: cf['Raport Końcowy'] || cf['Raport Koncowy'] || '',\n    rapPolTresc: cf['Raport Połówkowy'] || cf['Raport Polowkowy'] || '',\n    flaga: cf['Flaga Problemu'] || 'Brak problemów',\n    taskUrl: task.url\n  };\n});\n\nconst stats = {\n  lacznie: pracownicy.length,\n  obecni: pracownicy.filter(p => p.przybycie !== '❌').length,\n  nieobecni: pracownicy.filter(p => p.przybycie === '❌').length,\n  spoznieni: pracownicy.filter(p => p.spoznMin > 0).length,\n  rozdanoSum: pracownicy.reduce((s, p) => s + p.rozdano, 0),\n  rapPolOdd: pracownicy.filter(p => p.rapPol === '✅').length,\n  rapKonOdd: pracownicy.filter(p => p.rapKon === '✅').length,\n  zakonczone: pracownicy.filter(p => p.status === 'ZAKOŃCZONA').length,\n  srednia: pracownicy.length > 0\n    ? Math.round(pracownicy.reduce((s, p) => s + p.rozdano, 0) / Math.max(pracownicy.filter(p => p.przybycie !== '❌').length, 1))\n    : 0\n};\n\nconst problemy = {\n  bezRapKon: pracownicy.filter(p => p.rapKon === '❌' && p.przybycie !== '❌'),\n  nieobecni: pracownicy.filter(p => p.przybycie === '❌'),\n  spoznieni: pracownicy.filter(p => p.spoznMin > 0)\n};\n\nreturn [{\n  json: {\n    ...cfg,\n    pracownicy,\n    stats,\n    problemy,\n    maProblemy: problemy.bezRapKon.length > 0 || problemy.nieobecni.length > 0\n  }\n}];\n"
+      },
+      "id": "b1725267-48ff-4abf-a209-d92a6d46455a",
+      "name": "ANALIZA - Statystyki Dnia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst { pracownicy, stats, problemy } = d;\n\nconst wiersze = pracownicy.map((p, i) => {\n  const bg = i % 2 === 0 ? '#f8f9fa' : 'white';\n  const flagaKolor = p.flaga === 'Brak problemów' ? 'green' :\n                     p.flaga.includes('Spóź') ? 'orange' : 'red';\n  return `<tr style=\"background:${bg};\">\n    <td style=\"padding:7px 10px;border:1px solid #dee2e6;font-weight:500;\">${p.imie}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.przybycie}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.wyjscie}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.zarej}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.sp}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.s13}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;font-weight:bold;color:#667eea;\">${p.rozdano}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.rapPol}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;\">${p.rapKon}</td>\n    <td style=\"padding:7px;border:1px solid #dee2e6;text-align:center;color:${flagaKolor};font-size:11px;font-weight:bold;\">${p.flaga}</td>\n  </tr>`;\n}).join('');\n\nconst problHTML = d.maProblemy ? `\n<div style=\"background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:15px;margin:15px 0;\">\n  <h3 style=\"color:#856404;margin:0 0 10px;\">⚠️ Problemy Dnia</h3>\n  ${problemy.bezRapKon.length > 0 ? `<p><b>Brak raportu końcowego:</b> ${problemy.bezRapKon.map(p => p.imie).join(', ')}</p>` : ''}\n  ${problemy.nieobecni.length > 0 ? `<p><b>Nieobecne bez zgłoszenia:</b> ${problemy.nieobecni.map(p => p.imie).join(', ')}</p>` : ''}\n  ${problemy.spoznieni.length > 0 ? `<p><b>Spóźnienia:</b> ${problemy.spoznieni.map(p => p.imie + ' (' + p.spoznMin + ' min)').join(', ')}</p>` : ''}\n</div>` : '<div style=\"background:#d4edda;border-radius:8px;padding:12px;margin:15px 0;\"><p style=\"color:#155724;margin:0;\">✅ Brak problemów - świetny dzień!</p></div>';\n\nconst raportyHTML = pracownicy.filter(p => p.rapKonTresc || p.rapPolTresc)\n  .map(p => `\n  <div style=\"background:#f8f9fa;padding:12px;border-radius:6px;margin:8px 0;border-left:3px solid #667eea;\">\n    <b>${p.imie}</b> <span style=\"color:${p.flaga === 'Brak problemów' ? 'green' : 'red'};font-size:12px;\">● ${p.flaga}</span>\n    ${p.rapPolTresc ? `<p style=\"margin:6px 0;font-size:13px;\"><em>13:00:</em> ${p.rapPolTresc}</p>` : ''}\n    ${p.rapKonTresc ? `<p style=\"margin:6px 0;font-size:13px;\"><em>Końcowy:</em> ${p.rapKonTresc}</p>` : ''}\n  </div>`).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial,sans-serif;max-width:950px;margin:0 auto;\">\n<div style=\"background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:28px;border-radius:12px 12px 0 0;\">\n  <h1 style=\"margin:0;font-size:26px;\">📊 Raport Końcowy Dnia - Hostessy</h1>\n  <p style=\"opacity:0.9;margin:6px 0 0;font-size:15px;\">Data: <b>${d.dataNazwa}</b></p>\n</div>\n<div style=\"background:white;padding:25px;border:1px solid #eee;\">\n  <h2 style=\"color:#444;border-bottom:2px solid #667eea;padding-bottom:8px;\">📈 Podsumowanie</h2>\n  <div style=\"display:flex;gap:12px;flex-wrap:wrap;margin:15px 0;\">\n    <div style=\"background:#e8f5e9;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:80px;\"><div style=\"font-size:26px;font-weight:bold;color:#2e7d32;\">${stats.obecni}</div><small>Obecnych</small></div>\n    <div style=\"background:#fce4ec;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:80px;\"><div style=\"font-size:26px;font-weight:bold;color:#c62828;\">${stats.nieobecni}</div><small>Nieobecnych</small></div>\n    <div style=\"background:#e3f2fd;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:80px;\"><div style=\"font-size:26px;font-weight:bold;color:#1565c0;\">${stats.rozdanoSum}</div><small>Rozdano łącznie</small></div>\n    <div style=\"background:#fff8e1;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:80px;\"><div style=\"font-size:26px;font-weight:bold;color:#e65100;\">${stats.srednia}</div><small>Średnia/osoba</small></div>\n    <div style=\"background:#f3e5f5;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:80px;\"><div style=\"font-size:26px;font-weight:bold;color:#6a1b9a;\">${stats.rapKonOdd}/${stats.lacznie}</div><small>Raporty końcowe</small></div>\n    <div style=\"background:#e0f2f1;padding:15px;border-radius:8px;text-align:center;flex:1;min-width:80px;\"><div style=\"font-size:26px;font-weight:bold;color:#00695c;\">${stats.spoznieni}</div><small>Spóźnienia</small></div>\n  </div>\n  ${problHTML}\n  <h2 style=\"color:#444;border-bottom:2px solid #667eea;padding-bottom:8px;margin-top:20px;\">👥 Tabela Pracowników</h2>\n  <div style=\"overflow-x:auto;\">\n  <table style=\"width:100%;border-collapse:collapse;font-size:12px;\">\n    <thead><tr style=\"background:linear-gradient(135deg,#667eea,#764ba2);color:white;\">\n      <th style=\"padding:10px;text-align:left;\">Imię</th>\n      <th style=\"padding:10px;\">Przybycie</th>\n      <th style=\"padding:10px;\">Wyjście</th>\n      <th style=\"padding:10px;\">Rejestr.</th>\n      <th style=\"padding:10px;\">Stan P.</th>\n      <th style=\"padding:10px;\">13:00</th>\n      <th style=\"padding:10px;\">Rozdano</th>\n      <th style=\"padding:10px;\">Rap.Poł.</th>\n      <th style=\"padding:10px;\">Rap.Końc.</th>\n      <th style=\"padding:10px;\">Status</th>\n    </tr></thead>\n    <tbody>${wiersze}</tbody>\n  </table>\n  </div>\n  ${raportyHTML ? `<h2 style=\"color:#444;border-bottom:2px solid #667eea;padding-bottom:8px;margin-top:20px;\">📝 Raporty Pracowników</h2>${raportyHTML}` : ''}\n</div>\n<div style=\"background:#f8f9fa;padding:12px;text-align:center;border:1px solid #eee;border-radius:0 0 12px 12px;\">\n  <small style=\"color:#888;\">Automatyczny raport dzienny | ${new Date().toLocaleString('pl-PL')}</small>\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...d,\n    html,\n    subject: `📊 Raport Końcowy Hostessy - ${d.dataStr} | ${d.maProblemy ? '⚠️ PROBLEMY' : '✅ OK'} | Rozdano: ${stats.rozdanoSum} szt.`\n  }\n}];\n"
+      },
+      "id": "22213073-5985-4a2a-853a-9aefd30d0b03",
+      "name": "BUDUJ - HTML Raportu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "=autoleady@gmail.com",
+        "subject": "=Raport {{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        976,
+        -192
+      ],
+      "id": "61d0240c-a3ff-4ada-a980-2b2a00d4f5fc",
+      "name": "Send a message1",
+      "webhookId": "88e25337-36c8-445b-8f04-78c633de31ea",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "UZClcStQjFuAT5TN",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Raport końcowy codziennie o 17",
+        "height": 448,
+        "width": 1328,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -128,
+        -208
+      ],
+      "typeVersion": 1,
+      "id": "0e59cbf4-365e-46ae-b675-6d9dc2570b20",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.id }}/field/{{ $json.custom_fields[8].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization ",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"value\": \"{{ $now.toFormat('HH:mm') }}\"\n}",
+        "options": {}
+      },
+      "id": "a24580d0-d6fc-43dd-926d-04f92fec2ec8",
+      "name": "🔄 Update ClickUp4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2384,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json[0] || $json;\n\nconst historyItems = data.history_items || [];\n\n// bierzemy ostatni event\nconst lastItem = historyItems[historyItems.length - 1];\n\nconst status = (lastItem?.after?.status || '').toLowerCase().trim();\n\nconst customFields = data.custom_fields || [];\n\nfunction getField(name) {\n  return customFields.find(f => f.name?.toLowerCase() === name.toLowerCase());\n}\n\nfunction isEmpty(val) {\n  return val === null || val === undefined || val === '';\n}\n\nconst startField = getField('godzina przyjścia');\nconst midField = getField('raport po 13:00');\nconst endField = getField('raport końcowy');\n\nconst now = new Date();\nconst time = now.toLocaleTimeString('pl-PL', {\n  hour: '2-digit',\n  minute: '2-digit'\n});\n\nlet updateField = null;\nlet action = null;\n\n// 🟢 START\nif (status === 'oczekuje' && startField && isEmpty(startField.value)) {\n  updateField = { id: startField.id, value: time };\n  action = 'start';\n}\n\n// 🟡 MID\nif (\n  ['etap 1-2', 'etap 3-4', 'etap 5'].includes(status) &&\n  midField &&\n  isEmpty(midField.value)\n) {\n  updateField = { id: midField.id, value: time };\n  action = 'mid';\n}\n\n// 🔴 END\nif (\n  ['etaqp 6', 'zakonczone'].includes(status) &&\n  endField &&\n  isEmpty(endField.value)\n) {\n  updateField = { id: endField.id, value: time };\n  action = 'end';\n}\n\n// ❌ brak dopasowania\nif (!updateField) {\n  return [{\n    json: {\n      skip: true,\n      status_detected: status,\n      reason: 'Brak dopasowania statusu',\n      debug: {\n        raw: data\n      }\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    task_id: data.task_id,\n    field: updateField,\n    action,\n    status_detected: status\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        32
+      ],
+      "id": "3e4f2f82-250f-4d59-8b0d-a6c5bbbd496b",
+      "name": "Przygotowanie status",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7e6a2e6e-ef73-4f5c-a186-c1c65cdea745",
+                    "leftValue": "={{ $json.status_detected }}",
+                    "rightValue": "etap 1-2",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "etap 1-2"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d03c3b3e-6232-4dcf-86dc-e4612c924535",
+                    "leftValue": "={{ $json.status_detected }}",
+                    "rightValue": "etap 3-4",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "etap 3-4"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3e087322-d0f0-4cfd-96e8-b004cca46748",
+                    "leftValue": "={{ $json.status_detected }}",
+                    "rightValue": "etap 5",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "etap 5"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2eaf1cd6-41ed-41c2-9e90-94cadd203943",
+                    "leftValue": "={{ $json.status_detected }}",
+                    "rightValue": "etap 6",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "etap 6"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "29107c8f-7a68-4e78-a4e5-46db5add7fdc",
+                    "leftValue": "={{ $json.status_detected }}",
+                    "rightValue": "wymaga uwagi",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "wymaga uwagi"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c1ea0064-ee20-4962-ade3-6cb0c7523413",
+                    "leftValue": "={{ $json.status_detected }}",
+                    "rightValue": "zakończone",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "zakończone"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        -16
+      ],
+      "id": "f536cab7-57f9-42b7-b8bb-90ee7483d01a",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "id": "={{ $json.debug.raw.task_id }}"
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        2192,
+        -192
+      ],
+      "id": "262cf269-4ef5-46a3-9505-baa62a57b62b",
+      "name": "Godzina przyjscia",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "id": "={{ $json.debug.raw.task_id }}"
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        2304,
+        48
+      ],
+      "id": "714f1b60-7da5-4f5c-9f37-bafb9bd3009e",
+      "name": "Raport 13:00",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "id": "={{ $json.debug.raw.task_id }}"
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        2304,
+        272
+      ],
+      "id": "3cf86c8d-fdc8-47ee-9c6c-35b792d6b706",
+      "name": "Raport Końcowy",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.id }}/field/{{ $json.custom_fields[10].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization ",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"value\": \"{{ $now.toFormat('HH:mm') }}\"\n}",
+        "options": {}
+      },
+      "id": "231b721a-a563-4eec-b929-03b4c1cb88e8",
+      "name": "🔄 Update ClickUp5",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2528,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.id }}/field/{{ $json.custom_fields[9].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization ",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"value\": \"{{ $now.toFormat('HH:mm') }}\"\n}",
+        "options": {}
+      },
+      "id": "7e3a0923-d584-492f-9817-906b657b1dcf",
+      "name": "🔄 Update ClickUp6",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2528,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "team": "90152423592",
+        "events": [
+          "taskStatusUpdated"
+        ],
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUpTrigger",
+      "typeVersion": 1,
+      "position": [
+        1296,
+        32
+      ],
+      "id": "f3cb27ac-a23a-425a-a668-1b4229b0469e",
+      "name": "ClickUp Trigger",
+      "webhookId": "61681261-180b-4cd7-8a49-e059be2509ce",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('ClickUp Trigger').item.json.task_id }}/field/{{ $('Godzina przyjscia').item.json.custom_fields[25].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization ",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"value\": \"{{ (() => {\n\n    const fields = $node['Godzina przyjscia'].json.custom_fields;\n\n    const przyjscie = fields.find(f => f.name === 'Godzina Przyjścia')?.value;\n    const plan = fields.find(f => f.name === 'Planowana Godzina Startu')?.value;\n\n    if (!przyjscie || !plan) return 0;\n\n    const [h1, m1] = przyjscie.split(':').map(Number);\n    const [h2, m2] = plan.split(':').map(Number);\n\n    const diff = (h1 * 60 + m1) - (h2 * 60 + m2);\n\n    return diff > 0 ? diff : 0;\n\n  })() }}\"\n}",
+        "options": {}
+      },
+      "id": "3ead2d2a-aa72-416d-8c03-f045cda3fee0",
+      "name": "Czas spoznienia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3024,
+        -272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('Godzina przyjscia').item.json.id }}/field/{{ $('Godzina przyjscia').item.json.custom_fields[2].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization ",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"value\": true\n}",
+        "options": {}
+      },
+      "id": "5c2c312e-1398-4259-a79c-dca868dc4f9e",
+      "name": "checkbox czy zarejestrowany",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2608,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('Raport 13:00').item.json.id }}/field/{{ $('Raport 13:00').item.json.custom_fields[23].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization ",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"value\": true\n}",
+        "options": {}
+      },
+      "id": "819581dd-e840-4870-bd13-00ba8e6d7c06",
+      "name": "checkbox czy oddal raport 13",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2736,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('Raport Końcowy').item.json.id }}/field/{{ $('Raport Końcowy').item.json.custom_fields[21].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization ",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"value\": true\n}",
+        "options": {}
+      },
+      "id": "d476e196-6885-41a8-9e1c-07d05f595528",
+      "name": "checkbox czy oddal raport kocnowy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2736,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Godzina przyjścia -> zmiana pol: \n-Godzina oddania raportu\n-checkbox zarejestrowany\n-obliczenie minut spoznienia",
+        "height": 208,
+        "width": 1252,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1952,
+        -272
+      ],
+      "typeVersion": 1,
+      "id": "da65bdad-a447-46db-9565-910d7c81512c",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "Godzina odeslania raportu 13 -> zmiana pol: \n-Godzina oddania raportu\n-checkbox raport 3 oddany",
+        "width": 944,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1952,
+        16
+      ],
+      "typeVersion": 1,
+      "id": "c2e70ec5-92c7-449e-99aa-f328c4b3b4bd",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "content": "Godziina odeslania raportu koncowego -> zmiana pol: \n-Godzina oddania raportu\n-checkbox oddany raport",
+        "width": 944,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1952,
+        240
+      ],
+      "typeVersion": 1,
+      "id": "fa867d27-9d0f-4e33-bc25-b81806c22049",
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "842d9052-c254-4a47-b63e-ced88481126f",
+              "leftValue": "={{ $('Godzina przyjscia').item.json.custom_fields[8].value }}",
+              "rightValue": "={{ $('Godzina przyjscia').item.json.custom_fields[18].value }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2816,
+        -192
+      ],
+      "id": "b8036bc4-bc9e-48d9-9011-f901ef7dd263",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 6-17 * * *"
+            }
+          ]
+        }
+      },
+      "id": "bfe2d646-1c80-4d70-98bd-9b02b2f0372a",
+      "name": "SCHEDULER - Co 15 min (6:00-17:00)1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        -608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst nowMin = now.getHours() * 60 + now.getMinutes();\nconst startMin = 8 * 60;\nconst minPoStart = nowMin - startMin;\n\nreturn [{\n  json: {\n    listId: '901522609104',\n    listRaporty: '901522609109',\n    listAlerty: '901522609082',\n    token: 'pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE',\n    nowMin,\n    minPoStart,\n    startMin,\n    rapPolMin: 13 * 60,\n    rapKonMin: 17 * 60,\n    progNiskiStan: 30,\n    progSpoznMin: 15,\n    progSpoznZarzad: 3,\n    zarzadEmail: 'autoleady@gmail.com',\n    mgrEmail: 'testautoleady@gmail.com',\n    sysEmail: 'testautoleady@gmail.com',\n    dataStr: now.toLocaleDateString('pl-PL'),\n    timeStr: now.toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'}),\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "041667fd-cd18-4c7c-8181-f19b0ce3ff96",
+      "name": "SETUP - Konfiguracja1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        -608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('SETUP - Konfiguracja1').item.json;\nconst { nowMin, startMin, minPoStart, rapPolMin, progNiskiStan, progSpoznMin } = cfg;\n\nlet tasks = [];\nconst firstJson = $input.first().json;\n\nif (firstJson.tasks && Array.isArray(firstJson.tasks)) {\n  tasks = firstJson.tasks;\n} else if (Array.isArray(firstJson)) {\n  tasks = firstJson;\n} else {\n  tasks = $input.all().map(item => item.json);\n}\n\ntasks = tasks.filter(t => t.id && t.custom_fields);\n\nconst alerty = [];\nconst stats = {\n  lacznie: tasks.length,\n  obecni: 0,\n  spoznieni: 0,\n  nieobecni: 0,\n  bezRapPol: 0,\n  niskaIlosc: 0,\n  wymagaUwagi: 0\n};\n\n// ============================================\n// MECHANIZM DEDUPLIKACJI\n// Sprawdź kiedy ostatnio wysłano alert dla danego taska+typu\n// Używamy custom field \"Uwagi Managera\" lub date_updated jako proxy\n// GŁÓWNA LOGIKA: alert tego samego typu dla tego samego taska\n// wysyłamy max raz na X minut\n// ============================================\nconst COOLDOWN_SPOZNIENIE   = 240; // min - spóźnienie: raz na 4h (już wiemy, nie spam)\nconst COOLDOWN_NIEOBECNOSC  = 60;  // min - nieobecność: co godzinę\nconst COOLDOWN_BRAK_RAP_POL = 30;  // min - brak raportu pol: co 30 min\nconst COOLDOWN_NISKI_STAN   = 60;  // min - niski stan: co godzinę\n\n// Klucz: taskId_typ → timestamp ostatniego alertu\n// Przechowujemy w custom field \"date_updated\" taska jako proxy\n// LUB sprawdzamy przez pole tekstowe w tasku\n// \n// Najprostsze rozwiązanie: sprawdź date_updated taska\n// Jeśli task był update'owany niedawno przez system = alert już wysłano\n\nfunction minutySinceMs(ms) {\n  const now = Date.now();\n  return Math.floor((now - parseInt(ms)) / 60000);\n}\n\ntasks.forEach(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => {\n    if (f.value !== undefined && f.value !== null) {\n      cf[f.name] = f.value;\n    }\n  });\n\n  const imie    = task.name.trim();\n  const taskId  = task.id;\n  const taskUrl = task.url;\n  const email   = cf['Email'] || cfg.mgrEmail;\n\n  const gPrzyjscia  = cf['Godzina Przyjścia'] || cf['Godzina Przyjscia'] || null;\n  const stan13      = parseInt(cf['Stan o 13:00']    || '0') || 0;\n  const stanPocz    = parseInt(cf['Stan Początkowy'] || cf['Stan Poczatkowy'] || '0') || 0;\n  const rapPol      = cf['Raport Połówkowy'] || cf['Raport Polowkowy'] || null;\n  const liczbaSpozn = parseInt(cf['Liczba Spóźnień (łącznie)'] || '0') || 0;\n  const status      = (task.status?.status || '').toLowerCase();\n\n  // ---- Minuty od ostatniej aktualizacji taska ----\n  const minutesSinceUpdate = minutySinceMs(task.date_updated || task.date_created || 0);\n\n  if (status === 'wymaga uwagi') stats.wymagaUwagi++;\n\n  // ---- OBECNOŚĆ I SPÓŹNIENIE ----\n  if (gPrzyjscia && gPrzyjscia.trim() !== '') {\n    stats.obecni++;\n\n    const parts = gPrzyjscia.split(':');\n    if (parts.length === 2) {\n      const hP        = parseInt(parts[0]) || 0;\n      const mP        = parseInt(parts[1]) || 0;\n      const przyjMin  = hP * 60 + mP;\n      const spoznMinut = przyjMin - startMin;\n\n      if (spoznMinut > progSpoznMin) {\n        stats.spoznieni++;\n\n        // DEDUPLIKACJA SPÓŹNIENIA:\n        // Wyślij alert spóźnienia TYLKO jeśli:\n        // - to pierwsza rejestracja (liczbaSpozn zmiana) - task był update'owany < 30 min temu\n        // - LUB minęło więcej niż COOLDOWN od ostatniego alertu\n        // \n        // Heurystyka: jeśli task był zaktualizowany < 20 min temu\n        // = właśnie się zarejestrowała = wyślij alert (pierwsze spóźnienie tego dnia)\n        // Jeśli update był dawno = już wiemy o tym spóźnieniu = nie wysyłaj ponownie\n        \n        const czyNoweSpoznienie = minutesSinceUpdate < 20;\n        const czyPoKooldownie   = minutesSinceUpdate > COOLDOWN_SPOZNIENIE;\n\n        if (czyNoweSpoznienie || czyPoKooldownie) {\n          alerty.push({\n            typ:          'spoznienie',\n            ikona:        '⚠️',\n            taskId,\n            taskUrl,\n            imie,\n            email,\n            info:         `Spóźnienie ${spoznMinut} min (łącznie: ${liczbaSpozn + 1}x)`,\n            pilne:        liczbaSpozn >= cfg.progSpoznZarzad,\n            spoznMin:     spoznMinut,\n            liczbaSpozn,\n            czyNowe:      czyNoweSpoznienie\n          });\n        }\n        // else: znamy to spóźnienie, nie spamujemy\n      }\n    }\n  } else if (minPoStart > 30) {\n    stats.nieobecni++;\n\n    // DEDUPLIKACJA NIEOBECNOŚCI:\n    // Wyślij alert co COOLDOWN_NIEOBECNOSC minut\n    // Sprawdź przez minutesSinceUpdate:\n    // Pierwsze wykrycie: task nie był update'owany = minutesSinceUpdate duże = wyślij\n    // Kolejne: nie aktualizujemy taska przy braku osoby = zawsze duże = PROBLEM\n    //\n    // Rozwiązanie: użyj nowMin jako \"okna\"\n    // Wysyłaj alert nieobecności tylko co pełną godzinę (np. 9:00, 10:00...)\n    // lub przy pierwszym wykryciu (minPoStart == 31-45)\n    \n    const czyPierwszeWykrycie = minPoStart >= 30 && minPoStart <= 45;\n    const czyCykliczne        = nowMin % 60 < 15; // pierwsze 15 min każdej godziny\n\n    if (czyPierwszeWykrycie || czyCykliczne) {\n      alerty.push({\n        typ:    'nieobecnosc',\n        ikona:  '❌',\n        taskId,\n        taskUrl,\n        imie,\n        email,\n        info:   `Nieobecna ${minPoStart} min po starcie`,\n        pilne:  minPoStart > 60\n      });\n    }\n  }\n\n  // ---- BRAK RAPORTU POŁÓWKOWEGO ----\n  const rapPolOddany = cf['Raport Połówkowy Oddany'] === true\n    || cf['Raport Połówkowy Oddany'] === 'true'\n    || cf['Raport Polowkowy Oddany'] === true\n    || !!rapPol;\n\n  if (nowMin > rapPolMin + 30 && !rapPolOddany && gPrzyjscia) {\n    stats.bezRapPol++;\n\n    // DEDUPLIKACJA BRAK RAPORTU POŁ:\n    // Wysyłaj tylko:\n    // - raz zaraz po 13:30 (nowMin w oknie 810-825)\n    // - raz po 14:00 (nowMin w oknie 840-855) jeśli dalej brak\n    // - raz po 14:30 jako ostatnie przypomnienie\n    \n    const okno1 = nowMin >= rapPolMin + 30  && nowMin < rapPolMin + 45;  // 13:30-13:45\n    const okno2 = nowMin >= rapPolMin + 60  && nowMin < rapPolMin + 75;  // 14:00-14:15\n    const okno3 = nowMin >= rapPolMin + 90  && nowMin < rapPolMin + 105; // 14:30-14:45\n\n    if (okno1 || okno2 || okno3) {\n      alerty.push({\n        typ:      'brak_raportu_pol',\n        ikona:    '📋',\n        taskId,\n        taskUrl,\n        imie,\n        email,\n        info:     `Brak raportu połówkowego (po ${okno1 ? '13:30' : okno2 ? '14:00' : '14:30'})`,\n        pilne:    nowMin > rapPolMin + 60,\n        oknoAlertu: okno1 ? 1 : okno2 ? 2 : 3\n      });\n    }\n  }\n\n  // ---- NISKI STAN ----\n  const stanAktualny = stan13 > 0 ? stan13 : stanPocz;\n  if (stanAktualny > 0 && stanAktualny < progNiskiStan && gPrzyjscia) {\n    stats.niskaIlosc++;\n\n    // DEDUPLIKACJA NISKI STAN:\n    // Task był update'owany gdy wpisano niski stan\n    // Jeśli minutesSinceUpdate < 30 = świeże = wyślij\n    // Jeśli minutesSinceUpdate > COOLDOWN = przypomnij (ale rzadko)\n    \n    const czySwiezyAlert  = minutesSinceUpdate < 30;\n    const czyPoKooldownie = minutesSinceUpdate > COOLDOWN_NISKI_STAN;\n\n    if (czySwiezyAlert || czyPoKooldownie) {\n      alerty.push({\n        typ:    'niski_stan',\n        ikona:  '🔴',\n        taskId,\n        taskUrl,\n        imie,\n        email,\n        info:   `Niski stan produktu: ${stanAktualny} szt. (próg: ${progNiskiStan})`,\n        pilne:  true\n      });\n    }\n  }\n});\n\nconst maAlerty = alerty.length > 0;\nconst maPilne  = alerty.some(a => a.pilne);\n\nreturn [{\n  json: {\n    ...cfg,\n    alerty,\n    stats,\n    maAlerty,\n    maPilne,\n    liczbaAlertow: alerty.length,\n    _debug: {\n      tasksZnalezione: tasks.length,\n      inputFormat: Array.isArray(firstJson) ? 'array' : (firstJson.tasks ? 'tasks_object' : 'items')\n    }\n  }\n}];"
+      },
+      "id": "6aaf37d9-a50d-4691-92c5-b191886afa7a",
+      "name": "ANALIZA - Sprawdź Problemy1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        -608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $items(\"ANALIZA - Sprawdź Problemy1\")[0].json;\n\nconst kolorMap = {\n  spoznienie: '#fff3cd',\n  nieobecnosc: '#f8d7da',\n  brak_raportu_pol: '#d1ecf1',\n  niski_stan: '#f8d7da'\n};\n\nconst listaHTML = d.alerty.map(a => {\n  const kolor = kolorMap[a.typ] || '#f8f9fa';\n  const border = a.pilne ? '#dc3545' : '#ffc107';\n  return `\n  <div style=\"background:${kolor};padding:12px;border-radius:6px;margin:8px 0;border-left:4px solid ${border};\">\n    <strong>${a.ikona} ${a.imie}</strong>\n    ${a.pilne ? '<span style=\"color:red;font-weight:bold;\"> 🚨 PILNE</span>' : ''}\n    <br>\n    <span style=\"color:#555;font-size:13px;\">${a.info}</span>\n    <br>\n    <a href=\"${a.taskUrl}\" style=\"font-size:12px;color:#667eea;\">→ Zobacz task w ClickUp</a>\n  </div>`;\n}).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;\">\n<div style=\"background:#e74c3c;color:white;padding:20px;border-radius:10px 10px 0 0;\">\n  <h2 style=\"margin:0;\">🔔 Alert Systemu - ${d.timeStr}</h2>\n  <p style=\"opacity:0.85;margin:5px 0 0;\">Hostessy | ${d.dataStr}</p>\n</div>\n<div style=\"background:white;padding:20px;border:1px solid #eee;\">\n  <div style=\"display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;\">\n    <div style=\"background:#e8f5e9;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:green;\">${d.stats.obecni}</b><br><small>Obecni</small>\n    </div>\n    <div style=\"background:#fce4ec;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:red;\">${d.stats.nieobecni}</b><br><small>Nieobecni</small>\n    </div>\n    <div style=\"background:#fff3e0;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:orange;\">${d.stats.spoznieni}</b><br><small>Spóźnieni</small>\n    </div>\n    <div style=\"background:#fce4ec;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:red;\">${d.liczbaAlertow}</b><br><small>Alertów</small>\n    </div>\n  </div>\n  <h3 style=\"color:#e74c3c;\">⚠️ Lista Problemów (${d.liczbaAlertow})</h3>\n  ${listaHTML}\n</div>\n<div style=\"background:#f8f9fa;padding:10px;text-align:center;border:1px solid #eee;border-radius:0 0 10px 10px;\">\n  <small style=\"color:#888;\">Automatyczny monitoring co 15 min | ${d.timeStr}</small>\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...d,\n    emailHTML: html,\n    emailSubject: `🔔 Alert Hostessy | ${d.liczbaAlertow} problemów | ${d.timeStr} | ${d.maPilne ? '🚨 PILNE' : ''}`\n  }\n}];"
+      },
+      "id": "a8cd0be6-d087-4bfd-a928-c89c89fd1e7b",
+      "name": "BUDUJ - Email Alert1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        -624
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "=autoleady@gmail.com",
+        "subject": "={{ $('BUDUJ - Email Alert1').item.json.emailSubject }}",
+        "message": "={{ $('BUDUJ - Email Alert1').item.json.emailHTML }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1744,
+        -624
+      ],
+      "id": "32e39aae-907d-41d1-bc57-7d855940da4f",
+      "name": "Send a message2",
+      "webhookId": "c6f1df06-bbcd-47ea-804b-39b1d37e7ac5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "UZClcStQjFuAT5TN",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Co 15min sprawdza czy są jakieś alerty lub coś się dzieje, Nie wysyla duplikatow",
+        "height": 368,
+        "width": 2036,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -128,
+        -736
+      ],
+      "typeVersion": 1,
+      "id": "8f017ce9-97d5-4c19-8e79-5cd2dcad59b2",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "gkSEEN2nfGLPWlEU",
+          "mode": "list",
+          "cachedResultName": "alert_log",
+          "cachedResultUrl": "/projects/MQ48RGzyImrotRcN/datatables/gkSEEN2nfGLPWlEU"
+        },
+        "filters": {
+          "conditions": []
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        832,
+        -608
+      ],
+      "id": "979d035e-5973-4043-a546-fcedd70b8092",
+      "name": "Get row(s)"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "gkSEEN2nfGLPWlEU",
+          "mode": "list",
+          "cachedResultName": "alert_log",
+          "cachedResultUrl": "/projects/MQ48RGzyImrotRcN/datatables/gkSEEN2nfGLPWlEU"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "count": "={{ $json.count }}",
+            "key": "={{ $json.key }}",
+            "taskId": "={{ $json.taskId }}",
+            "typ": "={{ $json.typ }}",
+            "lastSent": "={{ $json.lastSent }}",
+            "hash": "={{ $json.taskId }}:{{ $json.typ }}:{{ $json.lastSent }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "taskId",
+              "displayName": "taskId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "typ",
+              "displayName": "typ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "hash",
+              "displayName": "hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "lastSent",
+              "displayName": "lastSent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Imie",
+              "displayName": "Imie",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "count",
+              "displayName": "count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1280,
+        -608
+      ],
+      "id": "f77ab08e-c539-40b4-b8c8-46000b84c016",
+      "name": "Insert row"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bd05a82b-7018-4c57-9496-b638e6a96758",
+      "name": "🔎 Szukaj Istniejącej Oferty Leady i maile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        -608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const alerts = $node[\"ANALIZA - Sprawdź Problemy1\"].json.alerty;\nconst db = $input.all().map(i => i.json);\n\n// zamień DB na mapę dla szybkiego lookup\nconst map = {};\nfor (const row of db) {\n  map[row.key] = row;\n}\n\nconst noweAlerty = [];\n\nfor (const a of alerts) {\n  const key = `${a.taskId}:${a.typ}`;\n\n  const istnieje = map[key];\n\n  if (!istnieje) {\n    // NOWY ALERT\n    noweAlerty.push({\n      json: {\n        key,\n        taskId: a.taskId,\n        typ: a.typ,\n        lastSent: new Date().toISOString(),\n        count: 1,\n        data: a\n      }\n    });\n  } else {\n    // UPDATE – tylko jeśli chcesz ponowić po czasie\n    const last = new Date(istnieje.lastSent);\n    const now = new Date();\n    const diffMin = (now - last) / 60000;\n\n    let cooldown = 60; // default\n\n    if (a.typ === 'spoznienie') cooldown = 240;\n    if (a.typ === 'brak_raportu_pol') cooldown = 30;\n\n    if (diffMin > cooldown) {\n      noweAlerty.push({\n        json: {\n          key,\n          taskId: a.taskId,\n          typ: a.typ,\n          lastSent: new Date().toISOString(),\n          count: (istnieje.count || 1) + 1,\n          data: a\n        }\n      });\n    }\n  }\n}\n\nreturn noweAlerty;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        -608
+      ],
+      "id": "d19bd341-9fe4-44f9-a2bc-f3b4e49c901e",
+      "name": "Code Deduplikate"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('ClickUp Trigger').item.json.task_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization ",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2c7702f-a4cc-4b77-8c41-f9673f42b495",
+      "name": "🔄 Update ClickUp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2528,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "id": "={{ $json.debug.raw.task_id }}"
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        2096,
+        480
+      ],
+      "id": "84d6db32-1d5a-4c9b-9966-6d67a171494d",
+      "name": "Get a task",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/901522878348/task",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization ",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{{ $json.name }}\",\n  \"description\": \"{{ JSON.stringify($json.description).slice(1, -1) }}\",\n  \"custom_fields\": [\n    {\n      \"id\": \"e16cfd9c-ef18-45a9-bd27-de3c7ad541ea\",\n      \"value\": \"{{ $json.custom_fields[0].value }}\"\n    },\n    {\n      \"id\": \"69fe4f5b-1798-49ab-a8b2-1be149e30077\",\n      \"value\": \"{{ $json.custom_fields[1].value }}\"\n    },\n    {\n      \"id\": \"7bcd5090-124b-4974-83cd-59713eefcc5b\",\n      \"value\": \"{{ $json.custom_fields[2].value }}\"\n    },\n    {\n      \"id\": \"d8af7c4d-76f0-4197-a69e-587c8db7b6aa\",\n      \"value\": \"{{ $json.custom_fields[3].value }}\"\n    },\n    {\n      \"id\": \"e87201aa-9a63-4316-bad0-5d10fc542b9c\",\n      \"value\": \"{{ $json.custom_fields[4].value }}\"\n    },\n    {\n      \"id\": \"29608b1a-a194-468b-bd73-62fbe344346b\",\n      \"value\": \"{{ $json.custom_fields[5].value }}\"\n    },\n\n    {\n      \"id\": \"4ddccc9c-5c40-4b56-9471-932f62ac03dd\",\n      \"value\": \"{{ $json.custom_fields[8].value }}\"\n    },\n    {\n      \"id\": \"8684fcd6-b7ae-45cc-bb72-4e08b9a377c9\",\n      \"value\": \"{{ $json.custom_fields[9].value }}\"\n    },\n    {\n      \"id\": \"08a01210-5262-48e8-872b-5ec02b11695b\",\n      \"value\": \"{{ $json.custom_fields[10].value }}\"\n    },\n    {\n      \"id\": \"0619eabf-bd43-464f-8472-0aaa9f36a6a0\",\n      \"value\": \"{{ $json.custom_fields[11].value }}\"\n    },\n    {\n      \"id\": \"7be0a02f-a029-4f3f-8a45-81a083248fa1\",\n      \"value\": \"{{ $json.custom_fields[12].value }}\"\n    },\n    {\n      \"id\": \"fd00d8d9-6e60-49fb-a489-e0f4901512b2\",\n      \"value\": \"{{ $json.custom_fields[13].value }}\"\n    },\n\n    {\n      \"id\": \"892b966d-a582-4966-940f-7b55caf9613a\",\n      \"value\": \"{{ $json.custom_fields[15].value }}\"\n    },\n    {\n      \"id\": \"87b2a760-7776-4cec-8434-2b25ba0d45b0\",\n      \"value\": \"{{ $json.custom_fields[16].value }}\"\n    },\n\n    {\n      \"id\": \"04e52d73-79a0-4ef3-95fc-195934bba82d\",\n      \"value\": \"{{ $json.custom_fields[18].value }}\"\n    },\n\n    {\n      \"id\": \"8b3b5a70-4d4b-459b-ac37-aea3dffebab2\",\n      \"value\": \"{{ $json.custom_fields[20].value }}\"\n    },\n    {\n      \"id\": \"231be79c-69bd-4d85-bc08-7b81ae90dfdb\",\n      \"value\": \"{{ $json.custom_fields[21].value }}\"\n    },\n    {\n      \"id\": \"b0841d29-a6d4-4ff1-beca-f48164e4c63d\",\n      \"value\": \"{{ $json.custom_fields[22].value }}\"\n    },\n    {\n      \"id\": \"c70706ba-f121-47e1-a7cf-2e88a885decc\",\n      \"value\": \"{{ $json.custom_fields[23].value }}\"\n    },\n    {\n      \"id\": \"383af78b-73d3-46b4-9b4a-6bd007088070\",\n      \"value\": \"{{ $json.custom_fields[24].value }}\"\n    },\n    {\n      \"id\": \"bbb1ad6e-5a40-4989-987b-cb1a7a170a56\",\n      \"value\": \"{{ $json.custom_fields[25].value }}\"\n    },\n    {\n      \"id\": \"eb918b95-6861-4fe9-bdcf-d325b866042a\",\n      \"value\": \"{{ $json.custom_fields[26].value }}\"\n    },\n    {\n      \"id\": \"8bd99040-0548-4d04-aa6b-0817090c6f80\",\n      \"value\": \"{{ $json.custom_fields[27].value }}\"\n    },\n    {\n      \"id\": \"b1ebfe65-c220-43f1-abd9-6e8e0fe0f771\",\n      \"value\": \"{{ $json.custom_fields[28].value }}\"\n    },\n    {\n      \"id\": \"d6fa18c4-256a-45c2-8ebe-1532016b3d3e\",\n      \"value\": \"{{ $json.custom_fields[29].value }}\"\n    },\n    {\n      \"id\": \"7f97d5d8-de5c-43d8-8b12-c796c0ed2ef6\",\n      \"value\": \"{{ $json.custom_fields[30].value }}\"\n    },\n    {\n      \"id\": \"73d23d17-7988-44d1-884d-cc065c5b7fc2\",\n      \"value\": \"{{ $json.custom_fields[32].value }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "c352e9f5-c890-41ca-8832-728f687f47bb",
+      "name": "🔄 Update ClickUp7",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2320,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('ClickUp Trigger').item.json.task_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization ",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b0c9769c-a861-4c2f-ac4c-69ff9160e470",
+      "name": "🔄 Update ClickUp1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2736,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Duplikacja taska po przerzuceniu do zakonczone -> oraz usuniecie",
+        "height": 176,
+        "width": 960,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1952,
+        448
+      ],
+      "typeVersion": 1,
+      "id": "d4d0b912-0994-480a-9f59-584fad16a6dc",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/901522878348/task",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization ",
+              "value": "=pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=={\n  \"name\": \"{{ $json.name }}\",\n  \"description\": \"{{ $json.html }}\",\n  \"custom_fields\": [\n    {\n      \"id\": \"e16cfd9c-ef18-45a9-bd27-de3c7ad541ea\",\n      \"value\": \"{{ $json.custom_fields[0]?.value }}\"\n    },\n    {\n      \"id\": \"69fe4f5b-1798-49ab-a8b2-1be149e30077\",\n      \"value\": \"{{ $json.custom_fields[1]?.value }}\"\n    },\n    {\n      \"id\": \"7bcd5090-124b-4974-83cd-59713eefcc5b\",\n      \"value\": \"{{ $json.custom_fields[2]?.value }}\"\n    },\n    {\n      \"id\": \"d8af7c4d-76f0-4197-a69e-587c8db7b6aa\",\n      \"value\": \"{{ $json.custom_fields[3]?.value }}\"\n    },\n    {\n      \"id\": \"e87201aa-9a63-4316-bad0-5d10fc542b9c\",\n      \"value\": \"{{ $json.custom_fields[4]?.value }}\"\n    },\n    {\n      \"id\": \"29608b1a-a194-468b-bd73-62fbe344346b\",\n      \"value\": \"{{ $json.custom_fields[5]?.value }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "8fb08b29-492d-4786-9cd7-e8b236b881d3",
+      "name": "Tworzenie Raportu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        64
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "Zmiana statusu -> przygotowanie -> ukierunkowanie",
+        "height": 400,
+        "width": 576,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1264,
+        -128
+      ],
+      "typeVersion": 1,
+      "id": "a58f9b9e-0cdd-40b8-93cb-29d33a236425",
+      "name": "Sticky Note3"
+    }
+  ],
+  "connections": {
+    "SCHEDULER - 17:00 Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Konfiguracja Raportu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Konfiguracja Raportu": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Wszystkie Taski",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Wszystkie Taski": {
+      "main": [
+        [
+          {
+            "node": "ANALIZA - Statystyki Dnia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ANALIZA - Statystyki Dnia": {
+      "main": [
+        [
+          {
+            "node": "BUDUJ - HTML Raportu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - HTML Raportu": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Tworzenie Raportu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        []
+      ]
+    },
+    "Przygotowanie status": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Godzina przyjscia",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Raport 13:00",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [
+          {
+            "node": "Raport Końcowy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [
+          {
+            "node": "Get a task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Godzina przyjscia": {
+      "main": [
+        [
+          {
+            "node": "🔄 Update ClickUp4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Raport 13:00": {
+      "main": [
+        [
+          {
+            "node": "🔄 Update ClickUp5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "🔄 Update ClickUp6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Update ClickUp4": {
+      "main": [
+        [
+          {
+            "node": "checkbox czy zarejestrowany",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Update ClickUp5": {
+      "main": [
+        [
+          {
+            "node": "checkbox czy oddal raport 13",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Update ClickUp6": {
+      "main": [
+        [
+          {
+            "node": "checkbox czy oddal raport kocnowy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ClickUp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Przygotowanie status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "checkbox czy zarejestrowany": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Czas spoznienia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Czas spoznienia": {
+      "main": [
+        []
+      ]
+    },
+    "SCHEDULER - Co 15 min (6:00-17:00)1": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Konfiguracja1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Konfiguracja1": {
+      "main": [
+        [
+          {
+            "node": "🔎 Szukaj Istniejącej Oferty Leady i maile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ANALIZA - Sprawdź Problemy1": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - Email Alert1": {
+      "main": [
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)": {
+      "main": [
+        [
+          {
+            "node": "Code Deduplikate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert row": {
+      "main": [
+        [
+          {
+            "node": "BUDUJ - Email Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔎 Szukaj Istniejącej Oferty Leady i maile": {
+      "main": [
+        [
+          {
+            "node": "ANALIZA - Sprawdź Problemy1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Deduplikate": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a task": {
+      "main": [
+        [
+          {
+            "node": "🔄 Update ClickUp7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Update ClickUp7": {
+      "main": [
+        [
+          {
+            "node": "🔄 Update ClickUp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Update ClickUp": {
+      "main": [
+        [
+          {
+            "node": "🔄 Update ClickUp1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": {
+    "node:ClickUp Trigger": {},
+    "node:SCHEDULER - 17:00 Raport Końcowy": {
+      "recurrenceRules": []
+    },
+    "node:SCHEDULER - Co 15 min (6:00-17:00)": {
+      "recurrenceRules": []
+    },
+    "node:SCHEDULER - Co 15 min (6:00-17:00)1": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "5663209d-6735-46b4-8ee3-d52b73357962",
+  "activeVersionId": null,
+  "triggerCount": 3,
+  "shared": [
+    {
+      "updatedAt": "2026-04-15T19:51:43.713Z",
+      "createdAt": "2026-04-15T19:51:43.713Z",
+      "role": "workflow:owner",
+      "workflowId": "4gxoQAVkXGARL5fq",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
