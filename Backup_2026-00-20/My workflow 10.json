@@ -1,0 +1,2156 @@
+{
+  "updatedAt": "2026-04-07T16:05:19.540Z",
+  "createdAt": "2026-04-06T06:47:56.925Z",
+  "id": "utsdVzdzibGVLlo3",
+  "name": "My workflow 10",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pracownik-rejestracja",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "42027d31-2d1c-4e0d-913a-50fd4ae22274",
+      "name": "WEBHOOK - Rejestracja Pracownika",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1312,
+        240
+      ],
+      "webhookId": "3cb8ca71-da0d-4a52-a41a-2bd2a8f3e928"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Jesteś systemem walidacji danych pracowników agencji eventowej. Zwracasz WYŁĄCZNIE poprawny JSON, bez żadnego dodatkowego tekstu, komentarzy ani bloków markdown.\n\nKonfiguracja zespołów:\n- hostessy: listId=LIST_ID_HOSTESSY, managerEmail=manager.hostessy@agencja.pl, typProduktu=Coca-Cola, jednostka=puszki, godzinaStart=08:00, godzinaKoniec=18:00, godzinaRaportPolowkowy=13:00, maxSpoznienieAlertMin=15\n- rejestracja: listId=LIST_ID_REJESTRACJA, managerEmail=manager.rejestracja@agencja.pl, typProduktu=Identyfikatory, jednostka=szt, godzinaStart=07:30, godzinaKoniec=17:00, godzinaRaportPolowkowy=12:30, maxSpoznienieAlertMin=10\n- logistyka: listId=LIST_ID_LOGISTYKA, managerEmail=manager.logistyka@agencja.pl, typProduktu=Paczki, jednostka=szt, godzinaStart=07:00, godzinaKoniec=19:00, godzinaRaportPolowkowy=13:00, maxSpoznienieAlertMin=15\n- ochrona: listId=LIST_ID_OCHRONA, managerEmail=manager.ochrona@agencja.pl, typProduktu=Przepustki, jednostka=szt, godzinaStart=06:00, godzinaKoniec=22:00, godzinaRaportPolowkowy=14:00, maxSpoznienieAlertMin=5\n- catering: listId=LIST_ID_CATERING, managerEmail=manager.catering@agencja.pl, typProduktu=Posilki, jednostka=porcje, godzinaStart=09:00, godzinaKoniec=20:00, godzinaRaportPolowkowy=14:00, maxSpoznienieAlertMin=10\n- vip: listId=LIST_ID_VIP, managerEmail=manager.vip@agencja.pl, typProduktu=VIP Pakiety, jednostka=szt, godzinaStart=08:00, godzinaKoniec=18:00, godzinaRaportPolowkowy=13:00, maxSpoznienieAlertMin=10\n\nStałe: ZARZAD_EMAIL=zarzad@agencja.pl, SYSTEM_EMAIL=system@agencja.pl\n\nZwróć JSON w dokładnie tej strukturze:\n{\n  \"isValid\": true/false,\n  \"errors\": [],\n  \"imie_nazwisko\": \"...\",\n  \"email\": \"...\",\n  \"telefon\": \"...\",\n  \"zespol\": \"...\",\n  \"zespolKey\": \"...\",\n  \"stanPoczatkowy\": 0,\n  \"uwagi\": \"...\",\n  \"listId\": \"...\",\n  \"managerEmail\": \"...\",\n  \"managerName\": \"...\",\n  \"zarzadEmail\": \"zarzad@agencja.pl\",\n  \"zarzadEmail2\": \"dyrektor@agencja.pl\",\n  \"systemEmail\": \"system@agencja.pl\",\n  \"godzinaPrzyjscia\": \"HH:MM\",\n  \"spoznienieMiny\": 0,\n  \"czyPunktualna\": true/false,\n  \"czySpozniona\": true/false,\n  \"dataFormatted\": \"DD.MM.YYYY\",\n  \"dataNazwa\": \"dzień tygodnia, DD MMMM YYYY\",\n  \"timestamp\": \"ISO string\",\n  \"etapStartowy\": \"2 - Zameldowana\",\n  \"statusObecnosci\": \"Obecny - punktualny\" lub \"Obecny - spoźniony\",\n  \"postep\": 25\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Zwaliduj i przetworz dane pracownika. Dzisiejsza data i czas: {{ $now.toISO() }}\n\nDane z webhooka:\n{{ JSON.stringify($json.body || $json) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3af765c7-e806-4124-8cb3-45667c49b511",
+      "name": "AI - Walidacja i Konfiguracja",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        -1136,
+        240
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "dfGH1X05V8r8kttH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst text = raw.choices?.[0]?.message?.content || raw.message?.content || raw.text || raw.output || '';\nlet parsed;\ntry { parsed = JSON.parse(text); } catch(e) { throw new Error('AI zwrócił nieprawidłowy JSON: ' + text.substring(0, 200)); }\nreturn [{ json: parsed }];"
+      },
+      "id": "eeefed19-4a9b-4f85-b7a5-e33221b7c8cf",
+      "name": "PARSE - Odpowiedź AI Walidacji",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "if-valid",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "608a7a9c-75f3-4715-9e83-3f05fdd848c3",
+      "name": "IF - Dane Poprawne?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, message: 'Blad walidacji danych', errors: $json.errors }) }}",
+        "options": {}
+      },
+      "id": "ae1cbf18-df72-4d7f-8652-1af0dbc608a0",
+      "name": "RESPONSE - Błąd Walidacji",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "e64d5909-6f69-428a-9df0-d18ba1063370",
+      "name": "CLICKUP - Utwórz Task Główny",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -448,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('PARSE - Odpowiedź AI Walidacji').item.json;\nconst taskResp = $input.first().json;\nif (!taskResp.id) throw new Error('ClickUp nie zwrócił ID taska: ' + JSON.stringify(taskResp));\nreturn [{ json: { ...config, taskId: taskResp.id, taskUrl: taskResp.url, taskName: taskResp.name } }];"
+      },
+      "id": "a6aec251-7b8d-4f5f-a658-249ff690ff3f",
+      "name": "ZAPISZ - Task ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "3fccff6c-a11f-457f-94c3-8ecf61eb323e",
+      "name": "CLICKUP - Subtask Etap 1 Zameldowanie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('ZAPISZ - Task ID').item.json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "7cdcbdeb-2a53-480a-8110-8a7bc60f107e",
+      "name": "CLICKUP - Subtask Etap 2 Rejestracja",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('ZAPISZ - Task ID').item.json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "e67eb74b-4d6d-44fa-a7da-62c65725a102",
+      "name": "CLICKUP - Subtask Etap 3 Towar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('ZAPISZ - Task ID').item.json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "bb5adc2a-2fd5-47ca-bc0e-69fc5e26d2cc",
+      "name": "CLICKUP - Subtask Etap 4 Praca",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('ZAPISZ - Task ID').item.json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "4b2b75b3-5763-49fb-8f26-37bbe781a881",
+      "name": "CLICKUP - Subtask Etap 5 Raport 13:00",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $('ZAPISZ - Task ID').item.json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "fb97c04b-65e5-487a-94b7-0d2fe7bcfa3b",
+      "name": "CLICKUP - Subtask Etap 6 Raport Końcowy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        416,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Jesteś asystentem agencji eventowej. Generujesz profesjonalne e-maile powitalne dla pracowników w języku polskim.\n\nZwracasz WYŁĄCZNIE poprawny JSON bez markdown ani dodatkowego tekstu:\n{\n  \"czySpozniona\": true/false,\n  \"emailSubject\": \"temat emaila\",\n  \"emailBody\": \"pełna treść emaila HTML\",\n  \"komentarzSpoznienie\": \"treść komentarza do ClickUp jeśli spóźniony, pusty string jeśli punktualny\"\n}\n\nEmail powitalny powinien zawierać:\n- Przywitanie z imieniem i nazwiskiem\n- Informację o przypisanym zespole i godzinie zameldowania\n- Listę 6 etapów dyżuru (Zameldowanie → Rejestracja → Weryfikacja towaru → Praca w terenie → Raport 13:00 → Raport końcowy)\n- Informację o godzinie raportu połówkowego\n- Powodzenia na dyżurze\n- Ładny HTML z inline styles (kolory: #667eea dla akcentów, biały background)\n\nJeśli pracownik spóźniony - dodaj info o spóźnieniu w emailu i wypełnij komentarzSpoznienie.\nJeśli punktualny - komentarzSpoznienie = \"\"",
+              "role": "system"
+            },
+            {
+              "content": "=Wygeneruj email powitalny dla pracownika.\n\nDane:\n- Imię i Nazwisko: {{ $('ZAPISZ - Task ID').item.json.imie_nazwisko }}\n- Zespół: {{ $('ZAPISZ - Task ID').item.json.zespol }}\n- Godzina przyjścia: {{ $('ZAPISZ - Task ID').item.json.godzinaPrzyjscia }}\n- Spóźnienie: {{ $('ZAPISZ - Task ID').item.json.spoznienieMiny }} minut\n- Czy spóźniony: {{ $('ZAPISZ - Task ID').item.json.czySpozniona }}\n- Data dyżuru: {{ $('ZAPISZ - Task ID').item.json.dataFormatted }}\n- Godzina raportu połówkowego: {{ $('ZAPISZ - Task ID').item.json.teamConfig?.godzinaRaportPolowkowy || '13:00' }}\n- Godzina zakończenia: {{ $('ZAPISZ - Task ID').item.json.teamConfig?.godzinaKoniec || '18:00' }}\n- Manager: {{ $('ZAPISZ - Task ID').item.json.managerName }}\n- Task URL: {{ $('ZAPISZ - Task ID').item.json.taskUrl }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "23e9dcb0-efa7-4443-b89d-7ff7d185719c",
+      "name": "AI - Generuj Email Powitalny",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        640,
+        352
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "dfGH1X05V8r8kttH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst text = raw.choices?.[0]?.message?.content || raw.message?.content || raw.text || raw.output || '';\nlet parsed;\ntry { parsed = JSON.parse(text); } catch(e) { throw new Error('AI JSON błąd: ' + text.substring(0, 200)); }\nconst ctx = $('ZAPISZ - Task ID').item.json;\nreturn [{ json: { ...ctx, ...parsed } }];"
+      },
+      "id": "e24a4c64-bfa6-4884-b797-cb4ab8c7b54a",
+      "name": "PARSE - Email Powitalny",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "if-spoz",
+              "leftValue": "={{ $json.czySpozniona }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c1177c67-98e3-4271-9bf5-0b1c0c87e382",
+      "name": "IF - Czy Spóźniona?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('ZAPISZ - Task ID').item.json.taskId }}/comment",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "comment_text",
+              "value": "={{ $json.komentarzSpoznienie }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2bffc0f-3af2-4c2d-9a6e-35de8d3176f9",
+      "name": "CLICKUP - Komentarz Spóźnienie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1264,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('PARSE - Email Powitalny').item.json.systemEmail }}",
+        "toEmail": "={{ $('PARSE - Email Powitalny').item.json.managerEmail }}",
+        "subject": "=⚠️ SPÓŹNIENIE | {{ $('PARSE - Email Powitalny').item.json.imie_nazwisko }} | {{ $('PARSE - Email Powitalny').item.json.zespol }} | {{ $('PARSE - Email Powitalny').item.json.spoznienieMiny }} min",
+        "options": {}
+      },
+      "id": "19fd9a25-6481-4de2-b0ea-867635c16ee2",
+      "name": "EMAIL - Alert Spóźnienie do Managera",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        352
+      ],
+      "webhookId": "3cb0ac4a-666d-45f4-9d6c-9afabc4f9121"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.systemEmail }}",
+        "toEmail": "={{ $('ZAPISZ - Task ID').item.json.email }}",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "ba5c41e3-4652-4221-826f-34c6f2ec16b5",
+      "name": "EMAIL - Powitalny do Pracownika",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        352
+      ],
+      "webhookId": "e2a27999-3dfb-47f1-9881-13d8bae27f12"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, message: 'Rejestracja zakonczona! Sprawdz email z instrukcjami.', pracownik: $('ZAPISZ - Task ID').item.json.imie_nazwisko, zespol: $('ZAPISZ - Task ID').item.json.zespol, taskId: $('ZAPISZ - Task ID').item.json.taskId, taskUrl: $('ZAPISZ - Task ID').item.json.taskUrl, etap: '2 - Zameldowana', godzinaRejestracji: $('ZAPISZ - Task ID').item.json.godzinaPrzyjscia }) }}",
+        "options": {}
+      },
+      "id": "89704bd7-61b0-47bb-bf1d-3c9f3b117e37",
+      "name": "RESPONSE - Sukces",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 6-22 * * *"
+            }
+          ]
+        }
+      },
+      "id": "92866bea-7bf7-4caa-834b-889461f6893a",
+      "name": "SCHEDULER - Co 15 min (6:00-22:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1248,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/901522609089/field",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "false"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Zameldowana"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Oczekuje na start"
+            },
+            {
+              "name": "statuses[]",
+              "value": "W trakcie pracy"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Wymaga uwagi"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2671ff9e-2cc2-4d5f-bcaf-5f6e1de34e01",
+      "name": "CLICKUP - Pobierz Aktywne Taski",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -400,
+        1120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LJcXaUcjE7gmtQIs",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Jesteś systemem monitorowania agencji eventowej. Analizujesz dane tasków z ClickUp i wykrywasz problemy.\n\nZwracasz WYŁĄCZNIE poprawny JSON bez markdown:\n{\n  \"skip\": false,\n  \"skipReason\": \"\",\n  \"statystyki\": {\n    \"lacznie\": 0, \"obecni\": 0, \"spoznieni\": 0, \"nieobecni\": 0,\n    \"bezRaportuPolowkowego\": 0, \"wymagaUwagi\": 0\n  },\n  \"problemy\": [\n    {\n      \"typ\": \"spoznienie\" | \"nieobecnosc\" | \"brak_raportu_polowkowego\",\n      \"taskId\": \"...\",\n      \"taskUrl\": \"...\",\n      \"imie\": \"...\",\n      \"email\": \"...\",\n      \"spoznMin\": 0,\n      \"alertZarzad\": true/false,\n      \"wiadomosc\": \"...\"\n    }\n  ],\n  \"maProblemy\": true/false,\n  \"alertZarzadWymagany\": true/false\n}\n\nZasady:\n- Spóźnienie > maxSpoznienieAlertMin minut od godzinaStart = problem typu 'spoznienie'\n- alertZarzad = true jeśli pracownik spóźnia się kolejny raz (Liczba Spoźnień >= 3) LUB nieobecny > 60 min\n- Brak raportu połówkowego 30+ min po godzinaRaportPolowkowy = problem\n- Za wcześnie (przed godzinaStart) = skip:true\n- Aktualny czas jest podany w danych wejściowych",
+              "role": "system"
+            },
+            {
+              "content": "=Przeanalizuj taski i wykryj problemy. Aktualna godzina (Polska): {{ $now.setZone('Europe/Warsaw').toFormat('HH:mm') }}\n\nKonfiguracja monitorowanego zespołu:\n- godzinaStart: 08:00\n- godzinaRaportPolowkowy: 13:00\n- maxSpoznienieAlertMin: 15\n- alertZarzadPo: 3 spóźnienia\n\nTaski z ClickUp:\n{{ JSON.stringify(($json.tasks || []).map(t => ({ id: t.id, url: t.url, name: t.name, status: t.status?.status, custom_fields: t.custom_fields }))) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "59ad1ca0-82e9-41b7-a0c3-46299cd9efdf",
+      "name": "AI - Analiza Spóźnień i Problemów",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        1120
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "dfGH1X05V8r8kttH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst text = raw.choices?.[0]?.message?.content || raw.message?.content || raw.text || raw.output || '';\nlet parsed;\ntry { parsed = JSON.parse(text); } catch(e) { throw new Error('AI JSON błąd: ' + text.substring(0, 200)); }\nconst meta = {\n  managerEmail: 'manager.hostessy@agencja.pl',\n  managerName: 'Manager Hostess',\n  systemEmail: 'system@agencja.pl',\n  zarzadEmail: 'zarzad@agencja.pl',\n  name: 'Hostessy'\n};\nreturn [{ json: { ...meta, ...parsed } }];"
+      },
+      "id": "c894a0b4-5430-4d33-9020-a976da4bf27f",
+      "name": "PARSE - Analiza Problemów",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "if-skip",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "if-prob",
+              "leftValue": "={{ $json.maProblemy }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7f7dd2c6-d886-434f-ad7e-9634af04608f",
+      "name": "IF - Są Problemy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        272,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Jesteś asystentem agencji eventowej. Generujesz profesjonalne alerty emailowe dla managerów zespołów w języku polskim.\n\nZwracasz WYŁĄCZNIE poprawny JSON bez markdown:\n{\n  \"emailSubject\": \"temat emaila z emoji\",\n  \"emailHTML\": \"pełny HTML emaila z inline styles\"\n}\n\nEmail musi zawierać:\n- Ładny nagłówek z kolorem #e74c3c i białym tekstem\n- Tabelę statystyk (łącznie / obecni / spóźnieni / nieobecni)\n- Listę problemów z emoji (⚠️ spóźnienie, ❌ nieobecność, 📋 brak raportu)\n- Dla problemów z alertZarzad=true: dopisek '🚨 ALERT ZARZĄD' na czerwono\n- Linki do tasków ClickUp\n- Stopkę z datą i godziną\n- max-width: 600px, font-family: Arial",
+              "role": "system"
+            },
+            {
+              "content": "=Wygeneruj alert email dla managera.\n\nZespół: {{ $json.name }}\nAktualna data/godzina: {{ $now.toISO() }}\n\nStatystyki: {{ JSON.stringify($json.statystyki) }}\nProblemy: {{ JSON.stringify($json.problemy) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9b9d99ab-f62f-48ec-af6a-36062299f8f3",
+      "name": "AI - Generuj Email dla Managera",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        496,
+        992
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "dfGH1X05V8r8kttH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst text = raw.choices?.[0]?.message?.content || raw.message?.content || raw.text || raw.output || '';\nlet parsed;\ntry { parsed = JSON.parse(text); } catch(e) { throw new Error('AI JSON błąd: ' + text.substring(0, 200)); }\nconst ctx = $('PARSE - Analiza Problemów').item.json;\nreturn [{ json: { ...ctx, ...parsed } }];"
+      },
+      "id": "5a489e96-e1b6-4086-8ce4-7fffaf329fef",
+      "name": "PARSE - Email Manager",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        992
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.systemEmail }}",
+        "toEmail": "={{ $json.managerEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "aba5dce8-c275-4101-8a1a-ac4f08742dd5",
+      "name": "EMAIL - Alert do Managera Zespołu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        992
+      ],
+      "webhookId": "cc78e5ff-f6be-4926-b425-1c381615910f"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "if-zarzad",
+              "leftValue": "={{ $('PARSE - Analiza Problemów').item.json.alertZarzadWymagany }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2676f75f-7d6d-45c5-a85d-df1b138e453e",
+      "name": "IF - Alert do Zarządu?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        576,
+        1168
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Jesteś asystentem agencji eventowej. Generujesz PILNE alerty dla zarządu w języku polskim.\n\nZwracasz WYŁĄCZNIE poprawny JSON bez markdown:\n{\n  \"emailSubject\": \"🚨 PILNY temat\",\n  \"emailZarzadHTML\": \"pełny HTML emaila z inline styles\"\n}\n\nEmail musi zawierać:\n- Dramatyczny nagłówek z kolorem #c0392b 'PILNY ALERT - ZARZĄD'\n- Podtytuł 'Wymagana natychmiastowa reakcja'\n- Tabelę krytycznych problemów (Pracownik | Zespół | Problem | Link do taska)\n- Nagłówek tabeli: tło #c0392b, biały tekst\n- Naglacy ton, ale profesjonalny\n- max-width: 650px",
+              "role": "system"
+            },
+            {
+              "content": "=Wygeneruj pilny alert dla zarządu.\n\nZespół: {{ $('PARSE - Analiza Problemów').item.json.name }}\nData/godzina: {{ $now.toISO() }}\n\nKrytyczne problemy (alertZarzad=true):\n{{ JSON.stringify($('PARSE - Analiza Problemów').item.json.problemy.filter(p => p.alertZarzad)) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1ce4868b-de12-4b14-af3f-59e26d7c1eed",
+      "name": "AI - Generuj Pilny Email dla Zarządu",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        960,
+        1248
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "dfGH1X05V8r8kttH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst text = raw.choices?.[0]?.message?.content || raw.message?.content || raw.text || raw.output || '';\nlet parsed;\ntry { parsed = JSON.parse(text); } catch(e) { throw new Error('AI JSON błąd: ' + text.substring(0, 200)); }\nconst ctx = $('PARSE - Analiza Problemów').item.json;\nreturn [{ json: { ...ctx, ...parsed } }];"
+      },
+      "id": "7555b9f9-de67-4330-b72e-71c0a0ca3698",
+      "name": "PARSE - Pilny Email Zarząd",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        1248
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.systemEmail }}",
+        "toEmail": "={{ $json.zarzadEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "826672cb-cc19-42a1-8d64-c3f2c0b04e1f",
+      "name": "EMAIL - Alert Pilny do Zarządu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        1248
+      ],
+      "webhookId": "04eee5d2-00c7-43d7-a98e-9992e281c5bd"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 18 * * *"
+            }
+          ]
+        }
+      },
+      "id": "f17b0b57-66bb-40c1-bb59-48070fc21885",
+      "name": "SCHEDULER - Codziennie 18:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1312,
+        1984
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const TEAMS = [\n  { name: 'Hostessy', listId: 'LIST_ID_HOSTESSY', managerEmail: 'manager.hostessy@agencja.pl', typProduktu: 'Coca-Cola', jednostka: 'puszki' },\n  { name: 'Rejestracja', listId: 'LIST_ID_REJESTRACJA', managerEmail: 'manager.rejestracja@agencja.pl', typProduktu: 'Identyfikatory', jednostka: 'szt' },\n  { name: 'Logistyka', listId: 'LIST_ID_LOGISTYKA', managerEmail: 'manager.logistyka@agencja.pl', typProduktu: 'Paczki', jednostka: 'szt' },\n  { name: 'Ochrona', listId: 'LIST_ID_OCHRONA', managerEmail: 'manager.ochrona@agencja.pl', typProduktu: 'Przepustki', jednostka: 'szt' },\n  { name: 'Catering', listId: 'LIST_ID_CATERING', managerEmail: 'manager.catering@agencja.pl', typProduktu: 'Posilki', jednostka: 'porcje' },\n  { name: 'VIP', listId: 'LIST_ID_VIP', managerEmail: 'manager.vip@agencja.pl', typProduktu: 'VIP Pakiety', jednostka: 'szt' }\n];\nconst now = new Date();\nreturn TEAMS.map(team => ({ json: { ...team, dateStr: now.toLocaleDateString('pl-PL'), timestamp: now.toISOString(), systemEmail: 'system@agencja.pl', zarzadEmail: 'zarzad@agencja.pl' } }));"
+      },
+      "id": "95ab1659-b22b-4529-8ecc-4d034d6fd5e8",
+      "name": "SETUP - Lista Zespołów (statyczna)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1088,
+        1984
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.listId }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_closed",
+              "value": "true"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Zakończona"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Zameldowana"
+            },
+            {
+              "name": "statuses[]",
+              "value": "W trakcie pracy"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Wymaga uwagi"
+            },
+            {
+              "name": "statuses[]",
+              "value": "Oczekuje na start"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a0bfd1cd-4e77-4a03-b57f-f0b9879b2157",
+      "name": "CLICKUP - Pobierz Wszystkie Taski",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -864,
+        1984
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Jesteś analitykiem danych agencji eventowej. Analizujesz taski z ClickUp i tworzysz statystyki końcowe dnia.\n\nZwracasz WYŁĄCZNIE poprawny JSON bez markdown:\n{\n  \"pracownicy\": [\n    {\n      \"id\": \"...\", \"url\": \"...\", \"imie\": \"...\", \"status\": \"...\",\n      \"godzinaPrzyjscia\": \"HH:MM lub —\",\n      \"godzinaWyjscia\": \"HH:MM lub —\",\n      \"czyZarej\": true/false,\n      \"stanPocz\": 0, \"stanPol\": 0, \"stanKon\": 0, \"rozdano\": 0,\n      \"raportPol\": \"treść lub pusty\",\n      \"raportKon\": \"treść lub pusty\",\n      \"uwagi\": \"\", \"email\": \"\"\n    }\n  ],\n  \"stats\": {\n    \"lacznie\": 0, \"obecni\": 0, \"nieobecni\": 0, \"zakonczone\": 0,\n    \"zRaportPol\": 0, \"zRaportKon\": 0, \"lacznie_rozdano\": 0, \"srednia_rozdano\": 0\n  },\n  \"problemy\": {\n    \"bezRaportKon\": [{ \"imie\": \"...\", \"url\": \"...\" }],\n    \"nieobecni\": [{ \"imie\": \"...\" }],\n    \"niezakonczone\": [{ \"imie\": \"...\", \"url\": \"...\" }]\n  },\n  \"maProblemy\": true/false\n}\n\nCustom fields w taskach: 'Godzina Przyjscia', 'Godzina Wyjscia', 'Czy Zarejestrowana', 'Stan Poczatkowy', 'Stan Polowkowy', 'Stan Koncowy', 'Raport Polowkowy', 'Raport Koncowy', 'Uwagi Managera', 'Email Pracownika'\nRozdano = Stan Poczatkowy - Stan Koncowy (lub - Stan Polowkowy jeśli brak końcowego)",
+              "role": "system"
+            },
+            {
+              "content": "=Przeanalizuj taski zespołu i stwórz statystyki końcowe.\n\nZespół: {{ $('SETUP - Lista Zespołów (statyczna)').item.json.name }}\nTyp produktu: {{ $('SETUP - Lista Zespołów (statyczna)').item.json.typProduktu }}\nJednostka: {{ $('SETUP - Lista Zespołów (statyczna)').item.json.jednostka }}\n\nTaski:\n{{ JSON.stringify(($json.tasks || []).map(t => ({ id: t.id, url: t.url, name: t.name, status: t.status?.status, custom_fields: t.custom_fields }))) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ec785dad-4634-4fc4-9970-0f9dbd588d35",
+      "name": "AI - Analiza Statystyk Końcowych",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        1984
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "dfGH1X05V8r8kttH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst text = raw.choices?.[0]?.message?.content || raw.message?.content || raw.text || raw.output || '';\nlet parsed;\ntry { parsed = JSON.parse(text); } catch(e) { throw new Error('AI JSON błąd: ' + text.substring(0, 200)); }\nconst ctx = $('SETUP - Lista Zespołów (statyczna)').item.json;\nreturn [{ json: { ...ctx, ...parsed } }];"
+      },
+      "id": "3d2c26a9-cf07-4b19-8282-fcb16364ff5a",
+      "name": "PARSE - Statystyki Końcowe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        1984
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Jesteś asystentem agencji eventowej. Generujesz profesjonalne raporty końcowe dnia w języku polskim.\n\nZwracasz WYŁĄCZNIE poprawny JSON bez markdown:\n{\n  \"emailSubject\": \"temat emaila z emoji\",\n  \"emailHTML\": \"kompletny HTML raportu z inline styles\"\n}\n\nRaport musi zawierać:\n- Nagłówek z gradientem (#667eea → #764ba2), nazwa zespołu i data\n- Kafelki ze statystykami (obecni, nieobecni, rozdano, średnia/osoba, raporty końcowe, zakończone)\n- Sekcja problemów jeśli maProblemy=true (żółte tło #fff3cd)\n- Szczegółowa tabela wszystkich pracowników (12 kolumn: imię, przybycie, wyjście, rejestracja, stan pocz, stan 13:00, rozdano, stan końc, rap.13:00, rap.końc, status)\n- Status kolorami: Zakończona=zielony, Wymaga uwagi=czerwony, reszta=pomarańczowy\n- Sekcja raportów indywidualnych (raporty połówkowe i końcowe z tekstem)\n- Responsywna tabela, overflow-x: auto\n- max-width: 900px",
+              "role": "system"
+            },
+            {
+              "content": "=Wygeneruj raport końcowy dnia.\n\nZespół: {{ $json.name }}\nData: {{ $json.dateStr }}\nTyp produktu: {{ $json.typProduktu }}\nJednostka: {{ $json.jednostka }}\n\nStatystyki: {{ JSON.stringify($json.stats) }}\nPrawnicy: {{ JSON.stringify($json.pracownicy) }}\nProblemy: {{ JSON.stringify($json.problemy) }}\nMa problemy: {{ $json.maProblemy }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5688a117-8f71-46e9-bfbc-e7ffea9f90fc",
+      "name": "AI - Generuj HTML Raport Końcowy",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        1984
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "dfGH1X05V8r8kttH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst text = raw.choices?.[0]?.message?.content || raw.message?.content || raw.text || raw.output || '';\nlet parsed;\ntry { parsed = JSON.parse(text); } catch(e) { throw new Error('AI JSON błąd: ' + text.substring(0, 200)); }\nconst ctx = $('PARSE - Statystyki Końcowe').item.json;\nreturn [{ json: { ...ctx, ...parsed } }];"
+      },
+      "id": "8babc9d9-1911-4ea5-b873-cc8ac2a4653b",
+      "name": "PARSE - Raport Końcowy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        1984
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.systemEmail }}",
+        "toEmail": "={{ $json.managerEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "31a804e2-b1a4-472c-b860-9cf4179d9bbc",
+      "name": "EMAIL - Raport do Managera Zespołu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        224,
+        1872
+      ],
+      "webhookId": "810620c9-dae2-4431-8ff5-78f5ed9c1dc5"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.clickup.com/api/v2/list/LIST_ID_RAPORTY_ZBIORCZE/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "69359e9e-3e3f-486a-893f-38e486d700a9",
+      "name": "CLICKUP - Zapisz Raport w Panelu Zarządu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        224,
+        2096
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Jesteś asystentem zarządu agencji eventowej. Tworzysz zbiorczy raport ze wszystkich zespołów.\n\nZwracasz WYŁĄCZNIE poprawny JSON bez markdown:\n{\n  \"emailSubject\": \"🏆 Zbiorczy Raport Zarządu - [data] | [status]\",\n  \"zbiorczyHTML\": \"kompletny HTML raportu z inline styles\",\n  \"totalStats\": {\n    \"pracownikow\": 0, \"obecnych\": 0, \"nieobecnych\": 0,\n    \"rozdano\": 0, \"raportow\": 0, \"problemow\": 0\n  }\n}\n\nRaport musi zawierać:\n- Ciemny nagłówek (#1a1a2e) 'Zbiorczy Raport Zarządu' z datą\n- Kafelki z łącznymi wynikami wszystkich zespołów\n- Tabelę z jednym wierszem per zespół (Zespół | Obecni | Nieobecni | Rozdano | Raporty | Status ✅/⚠️)\n- Nagłówek tabeli: tło #1a1a2e\n- Podsumowanie executywne (2-3 zdania o stanie operacji)\n- max-width: 750px",
+              "role": "system"
+            },
+            {
+              "content": "=Stwórz zbiorczy raport dla zarządu ze wszystkich zespołów.\n\nData: {{ $json.dateStr }}\n\nDane wszystkich zespołów:\n{{ JSON.stringify($input.all().map(i => ({ name: i.json.name, stats: i.json.stats, maProblemy: i.json.maProblemy, jednostka: i.json.jednostka }))) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d7ebf527-0b58-42c8-8032-ca2e82863bd4",
+      "name": "AI - Generuj Zbiorczy Raport Zarządu",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        224,
+        1984
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "dfGH1X05V8r8kttH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst text = raw.choices?.[0]?.message?.content || raw.message?.content || raw.text || raw.output || '';\nlet parsed;\ntry { parsed = JSON.parse(text); } catch(e) { throw new Error('AI JSON błąd: ' + text.substring(0, 200)); }\nreturn [{ json: { ...parsed, zarzadEmail: 'zarzad@agencja.pl', systemEmail: 'system@agencja.pl' } }];"
+      },
+      "id": "a5facb39-9666-4868-86ce-cecd966fb947",
+      "name": "PARSE - Zbiorczy Raport",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        1984
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.systemEmail }}",
+        "toEmail": "={{ $json.zarzadEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "options": {}
+      },
+      "id": "c0ec9d36-41e7-442a-a988-b1aa9a5cf238",
+      "name": "EMAIL - Zbiorczy Raport do Zarządu",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        640,
+        1984
+      ],
+      "webhookId": "8c43bd5e-2ef7-4040-9d64-0e55dfa9a024"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "getAll",
+        "team": "YOUR_TEAM_ID",
+        "space": "YOUR_SPACE_ID",
+        "limit": 100,
+        "filters": {}
+      },
+      "id": "8135107e-adc2-41a7-ac72-590ab612783e",
+      "name": "Get many folders",
+      "type": "n8n-nodes-base.clickUp",
+      "position": [
+        -928,
+        1536
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "team": "YOUR_TEAM_ID",
+        "space": "YOUR_SPACE_ID",
+        "folderless": true,
+        "list": "={{ $json.lists[0].id }}",
+        "filters": {}
+      },
+      "id": "d10d26f6-3e5e-48d5-8708-5323a4c2e0e6",
+      "name": "Get many tasks",
+      "type": "n8n-nodes-base.clickUp",
+      "position": [
+        -448,
+        1552
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "690fecb0-268f-41a6-9f43-5ec0d9ea4ac6",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [
+        -704,
+        1536
+      ],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are a project management analytics assistant.\n\nGenerate a concise, professional task summary using ONLY the data provided from ClickUp.  \nDo not invent data or make assumptions. Base all calculations strictly on the task data.\n\nTask Data:\nTask ID: {{$json.id}}\nName: {{$json.name}}\nDescription: {{$json.description}}\nStatus: {{$json.status.status}}\nPriority: {{ $json.priority }}\nAssignees: {{$json.assignees.map(a => a.username).join(', ')}}\nCreator: {{$json.creator.username}}\nDue Date: {{$json.due_date}}\nDate Created: {{$json.date_created}}\nDate Updated: {{$json.date_updated}}\nURL: {{$json.url}}\nProject: {{$json.project.name}}\nList: {{$json.list.name}}\nFolder: {{$json.folder.name}}\nSpace ID: {{$json.space.id}}\n\nMetrics (calculate based on task status and priority):\n- Completed: {{$json.status.status === 'done' ? 1 : 0}}\n- In Progress: {{$json.status.status === 'in progress' ? 1 : 0}}\n- Pending: {{$json.status.status === 'to do' || $json.status.status === 'pending' ? 1 : 0}}\n- Overdue: {{($json.due_date && Number($json.due_date) < Date.now() && $json.status.status !== 'done') ? 1 : 0}}\n- Productivity: {{($json.status.status === 'done' ? 100 : 0)}}%\n- KPI Score: [calculate based on completed tasks, priority, and overdue metrics]\n- Rating: [High priority & overdue → Critical, Medium priority → Needs Improvement, Low → Good]\n\nOutput plain text ONLY, in this format:\n\nTask Summary\nTask ID: <id>\nName: <name>\nProject: <project>\nFolder: <folder>\nList: <list>\nSpace ID: <space_id>\n\nOverview:\n- Description: <description>\n- Status: <status>\n- Priority: <priority>\n- Assignees: <assignees>\n- Creator: <creator>\n- Dates:\n    • Due: <due_date>\n    • Created: <date_created>\n    • Updated: <date_updated>\n\nMetrics:\n- Completed: <number>\n- In Progress: <number>\n- Pending: <number>\n- Overdue: <number>\n- Productivity: <percentage>%\n- KPI Score: <score>\n- Rating: <rating>\n\nTask Link: <url>\n\nInsight:\nProvide a one-line performance summary of this task's status and priority, explaining the current KPI score, rating, and any action required.\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "8acb7b94-3b6b-4937-803e-b3762d7f821c",
+      "name": "Message a model1",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "position": [
+        -240,
+        1552
+      ],
+      "typeVersion": 2.1,
+      "credentials": {
+        "openAiApi": {
+          "id": "dfGH1X05V8r8kttH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all items from previous node\nconst items = $input.all();\n\n// Helper function to calculate KPI score\nfunction calculateKPI(task) {\n    // Base KPI: 100 if done, 50 if in progress, 0 if pending\n    let base = 0;\n    if (task.overview.status.toLowerCase() === 'done') base = 100;\n    else if (task.overview.status.toLowerCase() === 'in progress') base = 60;\n    else base = 30;\n\n    // Adjust based on priority\n    const priority = task.overview.priority.toLowerCase();\n    if (priority === 'high') base += 10;\n    else if (priority === 'low') base -= 10;\n\n    // Reduce if overdue\n    if (task.metrics.overdue > 0) base -= 20;\n\n    // Clamp 0-100\n    return Math.max(0, Math.min(100, base));\n}\n\n// Helper to get Rating based on KPI Score\nfunction calculateRating(kpiScore) {\n    if (kpiScore >= 80) return 'Excellent';\n    if (kpiScore >= 60) return 'Needs Improvement';\n    if (kpiScore >= 40) return 'Average';\n    return 'Poor';\n}\n\n// Initialize result array\nconst parsedTasks = [];\n\nitems.forEach(item => {\n    // Safely access the ChatGPT text\n    const content = item.json.output?.[0]?.content?.[0]?.text;\n    if (!content) return; // skip if no text\n\n    const lines = content.split('\\n').map(l => l.trim()).filter(l => l);\n\n    // Initialize task object\n    let taskData = {\n        taskSummary: '',\n        taskId: '',\n        name: '',\n        project: '',\n        folder: '',\n        list: '',\n        spaceId: '',\n        overview: {\n            description: '',\n            status: '',\n            priority: '',\n            assignees: [],\n            creator: '',\n            dates: {\n                due: null,\n                created: null,\n                updated: null\n            }\n        },\n        metrics: {\n            completed: 0,\n            inProgress: 0,\n            pending: 0,\n            overdue: 0,\n            productivity: '',\n            kpiScore: 0,\n            rating: '',\n        },\n        taskLink: '',\n        insight: ''\n    };\n\n    let currentSection = '';\n\n    function parseNumber(str) { const n = Number(str); return isNaN(n)?0:n; }\n\n    // Parse each line\n    lines.forEach(line => {\n        if (line.startsWith('Task Summary')) taskData.taskSummary = 'Task Summary';\n        else if (line.startsWith('Task ID:')) taskData.taskId = line.replace('Task ID:','').trim();\n        else if (line.startsWith('Name:')) taskData.name = line.replace('Name:','').trim();\n        else if (line.startsWith('Project:')) taskData.project = line.replace('Project:','').trim();\n        else if (line.startsWith('Folder:')) taskData.folder = line.replace('Folder:','').trim();\n        else if (line.startsWith('List:')) taskData.list = line.replace('List:','').trim();\n        else if (line.startsWith('Space ID:')) taskData.spaceId = line.replace('Space ID:','').trim();\n        else if (line.startsWith('Overview:')) currentSection = 'overview';\n        else if (line.startsWith('Metrics:')) currentSection = 'metrics';\n        else if (line.startsWith('Task Link:')) taskData.taskLink = line.replace('Task Link:','').trim();\n        else if (line.startsWith('Insight:')) currentSection = 'insight';\n        else {\n            if (currentSection === 'overview') {\n                if (line.startsWith('- Description:')) taskData.overview.description = line.replace('- Description:','').trim();\n                else if (line.startsWith('- Status:')) taskData.overview.status = line.replace('- Status:','').trim();\n                else if (line.startsWith('- Priority:')) taskData.overview.priority = line.replace('- Priority:','').trim();\n                else if (line.startsWith('- Assignees:')) {\n                    const assigneesText = line.replace('- Assignees:','').trim();\n                    taskData.overview.assignees = assigneesText ? assigneesText.split(',').map(a=>a.trim()) : [];\n                }\n                else if (line.startsWith('- Creator:')) taskData.overview.creator = line.replace('- Creator:','').trim();\n                else if (line.startsWith('• Due:')) taskData.overview.dates.due = line.replace('• Due:','').trim() || null;\n                else if (line.startsWith('• Created:')) taskData.overview.dates.created = Number(line.replace('• Created:','').trim()) || null;\n                else if (line.startsWith('• Updated:')) taskData.overview.dates.updated = Number(line.replace('• Updated:','').trim()) || null;\n            } else if (currentSection === 'metrics') {\n                if (line.startsWith('- Completed:')) taskData.metrics.completed = parseNumber(line.replace('- Completed:','').trim());\n                else if (line.startsWith('- In Progress:')) taskData.metrics.inProgress = parseNumber(line.replace('- In Progress:','').trim());\n                else if (line.startsWith('- Pending:')) taskData.metrics.pending = parseNumber(line.replace('- Pending:','').trim());\n                else if (line.startsWith('- Overdue:')) taskData.metrics.overdue = parseNumber(line.replace('- Overdue:','').trim());\n                else if (line.startsWith('- Productivity:')) taskData.metrics.productivity = line.replace('- Productivity:','').trim();\n                // KPI and Rating will be recalculated\n            } else if (currentSection === 'insight') {\n                taskData.insight += (taskData.insight ? ' ' : '') + line;\n            }\n        }\n    });\n\n    // Calculate KPI Score and Rating based on parsed metrics\n    taskData.metrics.kpiScore = calculateKPI(taskData);\n    taskData.metrics.rating = calculateRating(taskData.metrics.kpiScore);\n\n    // Optional: Generate summary insight automatically if not present\n    if (!taskData.insight) {\n        taskData.insight = `Task has status \"${taskData.overview.status}\" with priority \"${taskData.overview.priority}\" and KPI ${taskData.metrics.kpiScore}, rating ${taskData.metrics.rating}.`;\n    }\n\n    parsedTasks.push({ json: taskData });\n});\n\nreturn parsedTasks;\n"
+      },
+      "id": "5fd15a0f-314c-4e4d-a331-06a2bcf2ce63",
+      "name": "Code in JavaScript",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        96,
+        1552
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "cachedResultName": "Employee summary"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "YOUR_SHEET_GID",
+          "cachedResultName": "Employee summary"
+        },
+        "columns": {
+          "value": {
+            "Folder": "={{ $json.folder }}",
+            "Rating": "={{ $json.metrics.rating }}",
+            "Status": "={{ $json.overview.status }}",
+            "Overdue": "={{ $json.metrics.overdue }}",
+            "Pending": "={{ $json.metrics.pending }}",
+            "Project": "={{ $json.project }}",
+            "Summary": "={{ $json.insight }}",
+            "Priority": "={{ $json.overview.priority }}",
+            "Completed": "={{ $json.metrics.completed }}",
+            "KPI Score": "={{ $json.metrics.kpiScore }}",
+            "Task Link": "={{ $json.taskLink }}",
+            "Task Name": "={{ $json.name }}",
+            "In Progress": "={{ $json.metrics.inProgress }}",
+            "Productivity": "={{ $json.metrics.productivity }}",
+            "Employee Name": "={{ $json.overview.creator }}"
+          },
+          "schema": [
+            {
+              "id": "Employee Name",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "Employee Name",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Task Name",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Task Name",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Project",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Project",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Folder",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Folder",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Status",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Priority",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Priority",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Completed",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Completed",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "In Progress",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "In Progress",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Pending",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Pending",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Overdue",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Overdue",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Productivity",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Productivity",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "KPI Score",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "KPI Score",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rating",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Rating",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Summary",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Summary",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Task Link",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Task Link",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ],
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "Employee Name"
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "45b5a33b-3409-4235-8d4e-1a317b94ffbf",
+      "name": "Append or update row in sheet1",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        304,
+        1552
+      ],
+      "typeVersion": 4.7
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 6-22 * * *"
+            }
+          ]
+        }
+      },
+      "id": "7485bc04-c09c-4cf8-8075-15c38348dab9",
+      "name": "SCHEDULER - Co 15 min (6:00-22:00)1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1168,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "team": "90152423592",
+        "space": "901510700896",
+        "folder": "901515478635",
+        "list": "901522620421",
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        -576,
+        1120
+      ],
+      "id": "30a4ca14-91a1-4114-ad2e-fc457067e4ad",
+      "name": "Get many tasks1",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "get",
+        "team": "90152423592",
+        "space": "901510689299",
+        "folder": "901515457292"
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        -1040,
+        1104
+      ],
+      "id": "2c2c276e-0bf3-4b00-b9b4-0bf680cb5407",
+      "name": "Get a folder",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -832,
+        1104
+      ],
+      "id": "2473c7b3-1c06-4766-95c5-f8786e341566",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "id": "={{ $('Raport popoludniowy').item.json.task_id }}",
+        "includeSubtasks": true
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        -688,
+        640
+      ],
+      "id": "046e9a42-ee0b-44cd-bb07-2648471f9814",
+      "name": "Get a task",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cdafac72-2eea-47e9-93d5-111c12c52b9a",
+              "leftValue": "={{ $now.format(\"HH:mm\") }}",
+              "rightValue": "={{ \"11:00\" }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -912,
+        656
+      ],
+      "id": "d32039fe-f821-40b1-8dbc-7d1e52db5c21",
+      "name": "Jezeli po 13:00"
+    },
+    {
+      "parameters": {
+        "team": "90152423592",
+        "events": [
+          "taskUpdated"
+        ],
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUpTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1360,
+        736
+      ],
+      "id": "276f0793-8680-477c-acbf-df0886898829",
+      "name": "Raport popoludniowy",
+      "webhookId": "01f3d554-a8f3-4fed-99ec-6bf909eeaaa2",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "5190e8ee-b23f-47cc-bcbd-c5ef6d150c96",
+              "leftValue": "={{ $json.history_items[0].custom_field.values_set }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1152,
+        736
+      ],
+      "id": "bb535b39-265d-414d-aebb-42ba5d9ba596",
+      "name": "If"
+    }
+  ],
+  "connections": {
+    "WEBHOOK - Rejestracja Pracownika": {
+      "main": [
+        [
+          {
+            "node": "AI - Walidacja i Konfiguracja",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI - Walidacja i Konfiguracja": {
+      "main": [
+        [
+          {
+            "node": "PARSE - Odpowiedź AI Walidacji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PARSE - Odpowiedź AI Walidacji": {
+      "main": [
+        [
+          {
+            "node": "IF - Dane Poprawne?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Dane Poprawne?": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Utwórz Task Główny",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RESPONSE - Błąd Walidacji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Utwórz Task Główny": {
+      "main": [
+        [
+          {
+            "node": "ZAPISZ - Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ZAPISZ - Task ID": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Subtask Etap 1 Zameldowanie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Subtask Etap 1 Zameldowanie": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Subtask Etap 2 Rejestracja",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Subtask Etap 2 Rejestracja": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Subtask Etap 3 Towar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Subtask Etap 3 Towar": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Subtask Etap 4 Praca",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Subtask Etap 4 Praca": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Subtask Etap 5 Raport 13:00",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Subtask Etap 5 Raport 13:00": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Subtask Etap 6 Raport Końcowy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Subtask Etap 6 Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "AI - Generuj Email Powitalny",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI - Generuj Email Powitalny": {
+      "main": [
+        [
+          {
+            "node": "PARSE - Email Powitalny",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PARSE - Email Powitalny": {
+      "main": [
+        [
+          {
+            "node": "IF - Czy Spóźniona?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Czy Spóźniona?": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Komentarz Spóźnienie",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EMAIL - Alert Spóźnienie do Managera",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EMAIL - Powitalny do Pracownika",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Komentarz Spóźnienie": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Powitalny do Pracownika",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EMAIL - Alert Spóźnienie do Managera": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Powitalny do Pracownika",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EMAIL - Powitalny do Pracownika": {
+      "main": [
+        [
+          {
+            "node": "RESPONSE - Sukces",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - Co 15 min (6:00-22:00)": {
+      "main": [
+        [
+          {
+            "node": "Get a folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Aktywne Taski": {
+      "main": [
+        [
+          {
+            "node": "AI - Analiza Spóźnień i Problemów",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI - Analiza Spóźnień i Problemów": {
+      "main": [
+        [
+          {
+            "node": "PARSE - Analiza Problemów",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PARSE - Analiza Problemów": {
+      "main": [
+        [
+          {
+            "node": "IF - Są Problemy?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Są Problemy?": {
+      "main": [
+        [
+          {
+            "node": "AI - Generuj Email dla Managera",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF - Alert do Zarządu?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI - Generuj Email dla Managera": {
+      "main": [
+        [
+          {
+            "node": "PARSE - Email Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PARSE - Email Manager": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Alert do Managera Zespołu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Alert do Zarządu?": {
+      "main": [
+        [
+          {
+            "node": "AI - Generuj Pilny Email dla Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI - Generuj Pilny Email dla Zarządu": {
+      "main": [
+        [
+          {
+            "node": "PARSE - Pilny Email Zarząd",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PARSE - Pilny Email Zarząd": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Alert Pilny do Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - Codziennie 18:00": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Lista Zespołów (statyczna)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Lista Zespołów (statyczna)": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Wszystkie Taski",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CLICKUP - Pobierz Wszystkie Taski": {
+      "main": [
+        [
+          {
+            "node": "AI - Analiza Statystyk Końcowych",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI - Analiza Statystyk Końcowych": {
+      "main": [
+        [
+          {
+            "node": "PARSE - Statystyki Końcowe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PARSE - Statystyki Końcowe": {
+      "main": [
+        [
+          {
+            "node": "AI - Generuj HTML Raport Końcowy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI - Generuj HTML Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "PARSE - Raport Końcowy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PARSE - Raport Końcowy": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Raport do Managera Zespołu",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CLICKUP - Zapisz Raport w Panelu Zarządu",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI - Generuj Zbiorczy Raport Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI - Generuj Zbiorczy Raport Zarządu": {
+      "main": [
+        [
+          {
+            "node": "PARSE - Zbiorczy Raport",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PARSE - Zbiorczy Raport": {
+      "main": [
+        [
+          {
+            "node": "EMAIL - Zbiorczy Raport do Zarządu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many folders": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many tasks": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Get many tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - Co 15 min (6:00-22:00)1": {
+      "main": [
+        [
+          {
+            "node": "Get many folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many tasks1": {
+      "main": [
+        [
+          {
+            "node": "CLICKUP - Pobierz Aktywne Taski",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a folder": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Get many tasks1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jezeli po 13:00": {
+      "main": [
+        [
+          {
+            "node": "Get a task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Raport popoludniowy": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Jezeli po 13:00",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "e93ec34b-8bb1-484d-bbff-f2850576d6e6",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-06T06:47:56.928Z",
+      "createdAt": "2026-04-06T06:47:56.928Z",
+      "role": "workflow:owner",
+      "workflowId": "utsdVzdzibGVLlo3",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
