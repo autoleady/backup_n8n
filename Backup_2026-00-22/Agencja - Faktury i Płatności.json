@@ -1,0 +1,870 @@
+{
+  "updatedAt": "2026-04-04T10:11:37.078Z",
+  "createdAt": "2026-04-04T10:11:36.406Z",
+  "id": "Zl4tuWR3NQrNvqLb",
+  "name": "Agencja - Faktury i Płatności",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "b795e8d2-025f-405a-8035-78b49e06872e",
+      "name": "⏰ Cron - 1 dzień miesiąca 8:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -656,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getRows",
+        "documentId": {
+          "value": "TWOJE_SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        }
+      },
+      "id": "afe43cf7-cd1f-49ae-9463-93be0b026673",
+      "name": "📊 Pobierz aktywnych klientów",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -448,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Przygotuj dane każdego klienta do wystawienia faktury\nconst items = $input.all();\nconst results = [];\n\nconst now = new Date();\nconst miesiac = now.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });\nconst miesiacNum = String(now.getMonth() + 1).padStart(2, '0');\nconst rok = now.getFullYear();\n\n// Data płatności - 14 dni od dziś\nconst dataplatnosci = new Date();\ndataplatnosci.setDate(dataplatnosci.getDate() + 14);\nconst dataplatnosciPL = dataplatnosci.toLocaleDateString('pl-PL');\nconst dataplatnosciISO = dataplatnosci.toISOString();\n\n// Data wystawienia\nconst dataWystawienia = now.toLocaleDateString('pl-PL');\n\nfor (const item of items) {\n  const klient = item.json;\n  \n  // Generuj numer faktury\n  const numerFaktury = `FV/${rok}/${miesiacNum}/${String(results.length + 1).padStart(3, '0')}`;\n  \n  // Oblicz kwoty\n  const kwotaNetto = parseFloat(klient['Wartość umowy'] || 0);\n  const vat = Math.round(kwotaNetto * 0.23 * 100) / 100;\n  const kwotaBrutto = Math.round((kwotaNetto + vat) * 100) / 100;\n  \n  results.push({\n    json: {\n      // Dane klienta\n      klientId: klient['ID Projektu'] || '',\n      klientNazwa: klient['Nazwa Klienta'] || '',\n      klientEmail: klient['Email'] || '',\n      klientNIP: klient['NIP'] || '',\n      klientAdres: klient['Adres'] || '',\n      pakiet: klient['Pakiet'] || '',\n      clickupTaskId: klient['ClickUp Task ID'] || '',\n      \n      // Dane faktury\n      numerFaktury,\n      dataWystawienia,\n      dataplatnosciPL,\n      dataplatnosciISO,\n      miesiac,\n      miesiacNum,\n      rok: String(rok),\n      \n      // Kwoty\n      kwotaNetto: kwotaNetto.toFixed(2),\n      vat: vat.toFixed(2),\n      kwotaBrutto: kwotaBrutto.toFixed(2),\n      \n      // Status\n      statusFaktury: 'WYSTAWIONA',\n      dataWystawieniaISO: now.toISOString()\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "09a2fa1a-ce43-41a6-9b56-e92bb3952cf1",
+      "name": "⚙️ Przygotuj dane faktur",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Jesteś asystentem agencji marketingowej. Piszesz profesjonalne ale przyjazne emaile do klientów po polsku. Email ma być ciepły, profesjonalny i krótki. Maksymalnie 4 zdania w głównej treści.",
+              "role": "system"
+            },
+            {
+              "content": "=Napisz treść emaila do klienta z fakturą miesięczną.\n\nDane:\n- Nazwa klienta: {{ $json.klientNazwa }}\n- Pakiet: {{ $json.pakiet }}\n- Miesiąc: {{ $json.miesiac }}\n- Kwota brutto: {{ $json.kwotaBrutto }} PLN\n- Numer faktury: {{ $json.numerFaktury }}\n- Termin płatności: {{ $json.dataplatnosciPL }}\n\nZwróć TYLKO treść główną emaila (bez powitania i podpisu). Wspomnij o sukcesach współpracy i terminie płatności."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7
+        }
+      },
+      "id": "ad1a01b0-0269-4fd0-bfb4-522d85e88f3e",
+      "name": "🤖 AI - Generuj treść emaila",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Połącz dane faktury z treścią AI\nconst invoiceData = $('⚙️ Przygotuj dane faktur').item.json;\nconst aiResponse = $input.first().json;\n\n// Wyciągnij treść z odpowiedzi AI\nconst aiContent = aiResponse.choices?.[0]?.message?.content || \n  `W załączniku przesyłamy fakturę za ${invoiceData.miesiac}. Termin płatności: ${invoiceData.dataplatnosciPL}.`;\n\nreturn [{\n  json: {\n    ...invoiceData,\n    aiEmailContent: aiContent\n  }\n}];"
+      },
+      "id": "2cab438c-2a17-40d6-bc1c-461f7142282d",
+      "name": "⚙️ Połącz dane z AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.klientEmail }}",
+        "subject": "=🧾 Faktura {{ $json.numerFaktury }} - {{ $json.miesiac }} | {{ $json.klientNazwa }}",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n<meta charset='UTF-8'>\n<style>\n  body{font-family:Arial,sans-serif;color:#1F2937;margin:0;padding:0;background:#F3F4F6;}\n  .wrapper{padding:20px;}\n  .container{max-width:640px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);}\n  .header{background:linear-gradient(135deg,#1E3A5F,#2563EB);color:white;padding:40px 35px;}\n  .header h1{margin:0 0 8px 0;font-size:24px;}\n  .header p{margin:0;opacity:0.85;font-size:15px;}\n  .body{padding:35px;}\n  .invoice-box{background:#F8FAFF;border:2px solid #DBEAFE;border-radius:10px;padding:25px;margin:20px 0;}\n  .invoice-title{font-size:18px;font-weight:bold;color:#1E3A5F;margin:0 0 20px 0;display:flex;justify-content:space-between;align-items:center;}\n  .invoice-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #E5E7EB;font-size:14px;}\n  .invoice-row:last-child{border-bottom:none;}\n  .invoice-label{color:#6B7280;}\n  .invoice-value{font-weight:600;color:#1F2937;}\n  .total-row{display:flex;justify-content:space-between;padding:15px;background:#1E3A5F;color:white;border-radius:8px;margin-top:15px;font-size:18px;font-weight:bold;}\n  .ai-content{background:#F0FDF4;border-left:4px solid #10B981;padding:20px;border-radius:0 8px 8px 0;margin:20px 0;color:#065F46;line-height:1.7;font-size:15px;}\n  .deadline-box{background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:15px;text-align:center;margin:20px 0;}\n  .deadline-box strong{color:#92400E;font-size:16px;}\n  .pay-button{display:block;background:linear-gradient(135deg,#059669,#10B981);color:white;padding:18px;border-radius:8px;text-decoration:none;font-weight:bold;text-align:center;font-size:16px;margin:20px 0;}\n  .bank-details{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:20px;margin:20px 0;}\n  .bank-row{padding:6px 0;font-size:14px;border-bottom:1px solid #E5E7EB;}\n  .bank-row:last-child{border-bottom:none;}\n  .footer{background:#1F2937;color:#9CA3AF;padding:25px;text-align:center;font-size:12px;}\n  .footer a{color:#60A5FA;text-decoration:none;}\n</style>\n</head>\n<body>\n<div class='wrapper'>\n<div class='container'>\n\n  <div class='header'>\n    <div style='font-size:40px;margin-bottom:12px;'>🧾</div>\n    <h1>Faktura miesięczna</h1>\n    <p>{{ $json.miesiac }} | {{ $json.klientNazwa }}</p>\n  </div>\n\n  <div class='body'>\n\n    <p style='font-size:16px;'>Hej! 👋</p>\n\n    <div class='ai-content'>\n      {{ $json.aiEmailContent }}\n    </div>\n\n    <div class='invoice-box'>\n      <div class='invoice-title'>\n        <span>📄 {{ $json.numerFaktury }}</span>\n        <span style='font-size:13px;color:#6B7280;font-weight:normal;'>Wystawiono: {{ $json.dataWystawienia }}</span>\n      </div>\n      <div class='invoice-row'>\n        <span class='invoice-label'>Usługa:</span>\n        <span class='invoice-value'>{{ $json.pakiet }} - {{ $json.miesiac }}</span>\n      </div>\n      <div class='invoice-row'>\n        <span class='invoice-label'>Kwota netto:</span>\n        <span class='invoice-value'>{{ $json.kwotaNetto }} PLN</span>\n      </div>\n      <div class='invoice-row'>\n        <span class='invoice-label'>VAT (23%):</span>\n        <span class='invoice-value'>{{ $json.vat }} PLN</span>\n      </div>\n      <div class='total-row'>\n        <span>💰 Do zapłaty:</span>\n        <span>{{ $json.kwotaBrutto }} PLN</span>\n      </div>\n    </div>\n\n    <div class='deadline-box'>\n      <strong>⏰ Termin płatności: {{ $json.dataplatnosciPL }}</strong>\n    </div>\n\n    <div class='bank-details'>\n      <p style='margin:0 0 12px 0;font-weight:bold;'>🏦 Dane do przelewu:</p>\n      <div class='bank-row'><strong>Nazwa:</strong> Twoja Agencja Marketingowa Sp. z o.o.</div>\n      <div class='bank-row'><strong>Bank:</strong> mBank</div>\n      <div class='bank-row'><strong>Numer konta:</strong> PL00 0000 0000 0000 0000 0000 0000</div>\n      <div class='bank-row'><strong>Tytuł:</strong> {{ $json.numerFaktury }} - {{ $json.klientNazwa }}</div>\n      <div class='bank-row'><strong>Kwota:</strong> {{ $json.kwotaBrutto }} PLN</div>\n    </div>\n\n    <p style='color:#6B7280;font-size:13px;'>Pytania dot. faktury? Napisz na <a href='mailto:faktury@agencja.pl' style='color:#2563EB;'>faktury@agencja.pl</a></p>\n\n  </div>\n\n  <div class='footer'>\n    <p>Twoja Agencja Marketingowa Sp. z o.o.<br>\n    NIP: 000-000-00-00 | ul. Przykładowa 1, 00-001 Warszawa<br>\n    <a href='mailto:kontakt@agencja.pl'>kontakt@agencja.pl</a> | <a href='https://agencja.pl'>agencja.pl</a></p>\n  </div>\n\n</div>\n</div>\n</body>\n</html>",
+        "options": {
+          "replyTo": "faktury@agencja.pl"
+        }
+      },
+      "id": "ddf6ee99-ac89-4764-b54e-d065c927190b",
+      "name": "📧 Wyślij fakturę do klienta",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "webhookId": "1da55d64-0af1-45c9-bdec-4c9a9d50b2ba"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "value": "TWOJE_SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        },
+        "sheetName": {
+          "value": "Faktury",
+          "__rl": true,
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Numer Faktury": "={{ $json.numerFaktury }}",
+            "ID Klienta": "={{ $json.klientId }}",
+            "Nazwa Klienta": "={{ $json.klientNazwa }}",
+            "Email Klienta": "={{ $json.klientEmail }}",
+            "Pakiet": "={{ $json.pakiet }}",
+            "Miesiąc": "={{ $json.miesiac }}",
+            "Data Wystawienia": "={{ $json.dataWystawienia }}",
+            "Termin Płatności": "={{ $json.dataplatnosciPL }}",
+            "Kwota Netto": "={{ $json.kwotaNetto }}",
+            "VAT": "={{ $json.vat }}",
+            "Kwota Brutto": "={{ $json.kwotaBrutto }}",
+            "Status": "WYSTAWIONA",
+            "Data Opłacenia": "",
+            "Przypomnienie 1": "NIE",
+            "Przypomnienie 2": "NIE",
+            "ClickUp Task ID": "={{ $json.clickupTaskId }}",
+            "Data Utworzenia": "={{ $json.dataWystawieniaISO }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "73a91199-da08-467d-b59f-748574d71a73",
+      "name": "📊 Zapisz fakturę w Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        448,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.clickupTaskId }}/comment",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "comment_text",
+              "value": "=💰 Faktura wystawiona automatycznie\n\n📄 Numer: {{ $json.numerFaktury }}\n💵 Kwota brutto: {{ $json.kwotaBrutto }} PLN\n📅 Termin płatności: {{ $json.dataplatnosciPL }}\n📧 Email z fakturą wysłany do: {{ $json.klientEmail }}\n\nStatus faktury: WYSTAWIONA ⏳"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2fde54d3-143d-4609-9095-1567a00c1894",
+      "name": "📌 ClickUp - Dodaj komentarz do zadania",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        448,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $json.clickupTaskId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "3e4451fa-8e04-43a9-8fd5-b24f149195ea",
+      "name": "🔄 ClickUp - Aktualizuj pola zadania",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        448,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 7,
+        "unit": "days"
+      },
+      "id": "56d1e5c9-152b-4272-9ed8-fab2b131bac8",
+      "name": "⏳ Czekaj 7 dni",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        672,
+        128
+      ],
+      "webhookId": "wait-7days-webhook-001"
+    },
+    {
+      "parameters": {
+        "operation": "getRows",
+        "documentId": {
+          "value": "TWOJE_SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        }
+      },
+      "id": "3d8c846d-d3d7-4b5d-aec1-66ea689c25ba",
+      "name": "🔍 Sprawdź status po 7 dniach",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        880,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "check-not-paid-7d",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "WYSTAWIONA",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "all"
+        },
+        "options": {}
+      },
+      "id": "962e2a9c-4303-4302-85d2-72a77f022da6",
+      "name": "❓ Czy nadal nieopłacona?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Jesteś asystentem agencji marketingowej. Piszesz uprzejme przypomnienia o płatności po polsku. Ton ma być miły i pomocny, nie naciskający. Maksymalnie 3 zdania.",
+              "role": "system"
+            },
+            {
+              "content": "=Napisz krótkie, uprzejme przypomnienie o fakturze.\n\nDane:\n- Nazwa klienta: {{ $('⚙️ Przygotuj dane faktur').item.json.klientNazwa }}\n- Numer faktury: {{ $('⚙️ Przygotuj dane faktur').item.json.numerFaktury }}\n- Kwota brutto: {{ $('⚙️ Przygotuj dane faktur').item.json.kwotaBrutto }} PLN\n- Termin płatności: {{ $('⚙️ Przygotuj dane faktur').item.json.dataplatnosciPL }}\n- Dni od wystawienia: 7\n\nZwróć TYLKO treść główną (bez powitania i podpisu). Bądź miły i zrozumiały."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.6
+        }
+      },
+      "id": "ea80bcb0-6153-4fed-857d-a0400ef4d1be",
+      "name": "🤖 AI - Treść przypomnienia 1",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const invoiceData = $('⚙️ Przygotuj dane faktur').item.json;\nconst aiResponse = $input.first().json;\nconst aiContent = aiResponse.choices?.[0]?.message?.content || \n  'Przypominamy o nieuregulowanej płatności za fakturę.';\n\nreturn [{\n  json: {\n    ...invoiceData,\n    aiEmailContent: aiContent,\n    reminderNumber: '1'\n  }\n}];"
+      },
+      "id": "c59f0e45-e5d2-4a34-b21a-0e1fe679824c",
+      "name": "⚙️ Połącz dane przypomnienia 1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('⚙️ Przygotuj dane faktur').item.json.klientEmail }}",
+        "subject": "=⏰ Przypomnienie o płatności - {{ $('⚙️ Przygotuj dane faktur').item.json.numerFaktury }}",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n<meta charset='UTF-8'>\n<style>\n  body{font-family:Arial,sans-serif;color:#1F2937;margin:0;padding:0;background:#F3F4F6;}\n  .wrapper{padding:20px;}\n  .container{max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);}\n  .header{background:linear-gradient(135deg,#F59E0B,#D97706);color:white;padding:35px;text-align:center;}\n  .body{padding:35px;}\n  .reminder-box{background:#FFFBEB;border:2px solid #FCD34D;border-radius:10px;padding:20px;margin:20px 0;}\n  .invoice-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #FDE68A;font-size:14px;}\n  .invoice-row:last-child{border-bottom:none;}\n  .total{background:#F59E0B;color:white;border-radius:8px;padding:15px;text-align:center;font-size:18px;font-weight:bold;margin:15px 0;}\n  .bank-box{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:15px;margin:15px 0;font-size:13px;}\n  .bank-row{padding:5px 0;border-bottom:1px solid #E5E7EB;}\n  .bank-row:last-child{border-bottom:none;}\n  .footer{background:#1F2937;color:#9CA3AF;padding:20px;text-align:center;font-size:12px;}\n</style>\n</head>\n<body>\n<div class='wrapper'>\n<div class='container'>\n  <div class='header'>\n    <div style='font-size:44px;margin-bottom:10px;'>⏰</div>\n    <h2 style='margin:0;font-size:22px;'>Przypomnienie o płatności</h2>\n    <p style='margin:8px 0 0 0;opacity:0.9;'>{{ $('⚙️ Przygotuj dane faktur').item.json.klientNazwa }}</p>\n  </div>\n  <div class='body'>\n    <p style='font-size:15px;'>Hej! 👋</p>\n    <div style='background:#FEF3C7;border-left:4px solid #F59E0B;padding:15px;border-radius:0 8px 8px 0;margin-bottom:20px;color:#78350F;line-height:1.7;'>\n      {{ $json.aiEmailContent }}\n    </div>\n    <div class='reminder-box'>\n      <div class='invoice-row'><span>📄 Numer faktury:</span><strong>{{ $('⚙️ Przygotuj dane faktur').item.json.numerFaktury }}</strong></div>\n      <div class='invoice-row'><span>📅 Termin płatności:</span><strong style='color:#DC2626;'>{{ $('⚙️ Przygotuj dane faktur').item.json.dataplatnosciPL }}</strong></div>\n      <div class='invoice-row'><span>📦 Pakiet:</span><strong>{{ $('⚙️ Przygotuj dane faktur').item.json.pakiet }}</strong></div>\n    </div>\n    <div class='total'>💰 Do zapłaty: {{ $('⚙️ Przygotuj dane faktur').item.json.kwotaBrutto }} PLN</div>\n    <div class='bank-box'>\n      <p style='margin:0 0 10px 0;font-weight:bold;font-size:14px;'>🏦 Dane do przelewu:</p>\n      <div class='bank-row'><strong>Konto:</strong> PL00 0000 0000 0000 0000 0000 0000</div>\n      <div class='bank-row'><strong>Tytuł:</strong> {{ $('⚙️ Przygotuj dane faktur').item.json.numerFaktury }}</div>\n      <div class='bank-row'><strong>Kwota:</strong> {{ $('⚙️ Przygotuj dane faktur').item.json.kwotaBrutto }} PLN</div>\n    </div>\n    <p style='color:#6B7280;font-size:13px;'>Jeśli już dokonałeś/aś płatności - przepraszamy za przypomnienie i prosimy o zignorowanie tej wiadomości.<br>Pytania? <a href='mailto:faktury@agencja.pl' style='color:#F59E0B;'>faktury@agencja.pl</a></p>\n  </div>\n  <div class='footer'>Twoja Agencja Marketingowa | faktury@agencja.pl | +48 123 456 789</div>\n</div>\n</div>\n</body>\n</html>",
+        "options": {
+          "replyTo": "faktury@agencja.pl"
+        }
+      },
+      "id": "77d66f78-38f7-46c1-9faf-4fa2ec342055",
+      "name": "📧 Wyślij przypomnienie 1 (7 dni)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ],
+      "webhookId": "0bbf9a7b-d540-4e94-b3a0-d9ed4567be5d"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "value": "TWOJE_SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        },
+        "sheetName": {
+          "value": "Faktury",
+          "__rl": true,
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "PRZYPOMNIENIE 1",
+            "Przypomnienie 1": "TAK"
+          }
+        },
+        "options": {}
+      },
+      "id": "602dcccd-5fb4-420a-b324-1f6968ff0732",
+      "name": "📊 Sheets - Aktualizuj status Przypomnienie 1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1760,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('⚙️ Przygotuj dane faktur').item.json.clickupTaskId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "45703774-a19a-4d58-9de3-f45e24424b54",
+      "name": "🔄 ClickUp - Status Przypomnienie 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1760,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 7,
+        "unit": "days"
+      },
+      "id": "744eb620-138d-4d3f-a67a-2f8070ea5e6c",
+      "name": "⏳ Czekaj kolejne 7 dni",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1984,
+        128
+      ],
+      "webhookId": "wait-7days-webhook-002"
+    },
+    {
+      "parameters": {
+        "operation": "getRows",
+        "documentId": {
+          "value": "TWOJE_SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        }
+      },
+      "id": "fe86bf70-e3dd-4846-8156-dbc901ffb74e",
+      "name": "🔍 Sprawdź status po 14 dniach",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2208,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "check-not-paid-14d",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "PRZYPOMNIENIE 1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "all"
+        },
+        "options": {}
+      },
+      "id": "fa28854b-785b-42f5-89bd-3b4e1fae123e",
+      "name": "❓ Czy nadal nieopłacona po 14 dniach?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        2432,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Jesteś asystentem agencji marketingowej. Piszesz ostateczne przypomnienie o przeterminowanej fakturze po polsku. Ton ma być poważniejszy ale nadal profesjonalny, nie agresywny. Wspomnij o możliwości kontaktu w celu wyjaśnienia sytuacji. Maksymalnie 4 zdania.",
+              "role": "system"
+            },
+            {
+              "content": "=Napisz ostateczne przypomnienie o przeterminowanej fakturze.\n\nDane:\n- Nazwa klienta: {{ $('⚙️ Przygotuj dane faktur').item.json.klientNazwa }}\n- Numer faktury: {{ $('⚙️ Przygotuj dane faktur').item.json.numerFaktury }}\n- Kwota brutto: {{ $('⚙️ Przygotuj dane faktur').item.json.kwotaBrutto }} PLN\n- Termin płatności: {{ $('⚙️ Przygotuj dane faktur').item.json.dataplatnosciPL }}\n- Dni przeterminowania: 14\n- To jest już drugie przypomnienie\n\nZwróć TYLKO treść główną. Bądź profesjonalny i stanowczy ale nie agresywny."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.5
+        }
+      },
+      "id": "23639404-e8e9-43b5-b39f-6f7e0d888961",
+      "name": "🤖 AI - Treść przypomnienia 2",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const invoiceData = $('⚙️ Przygotuj dane faktur').item.json;\nconst aiResponse = $input.first().json;\nconst aiContent = aiResponse.choices?.[0]?.message?.content || \n  'Faktura jest przeterminowana. Prosimy o pilne uregulowanie płatności.';\n\nreturn [{\n  json: {\n    ...invoiceData,\n    aiEmailContent: aiContent,\n    reminderNumber: '2'\n  }\n}];"
+      },
+      "id": "daaca1f9-4315-4370-a407-6d7a4125fb88",
+      "name": "⚙️ Połącz dane przypomnienia 2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2864,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('⚙️ Przygotuj dane faktur').item.json.klientEmail }}",
+        "subject": "=🔴 PILNE - Przeterminowana faktura {{ $('⚙️ Przygotuj dane faktur').item.json.numerFaktury }}",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n<meta charset='UTF-8'>\n<style>\n  body{font-family:Arial,sans-serif;color:#1F2937;margin:0;padding:0;background:#F3F4F6;}\n  .wrapper{padding:20px;}\n  .container{max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);}\n  .header{background:linear-gradient(135deg,#DC2626,#B91C1C);color:white;padding:35px;text-align:center;}\n  .body{padding:35px;}\n  .urgent-box{background:#FEF2F2;border:2px solid #FCA5A5;border-radius:10px;padding:20px;margin:20px 0;}\n  .invoice-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #FCA5A5;font-size:14px;}\n  .invoice-row:last-child{border-bottom:none;}\n  .total{background:#DC2626;color:white;border-radius:8px;padding:15px;text-align:center;font-size:20px;font-weight:bold;margin:15px 0;}\n  .bank-box{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:15px;margin:15px 0;font-size:13px;}\n  .contact-box{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:15px;margin:15px 0;font-size:14px;}\n  .footer{background:#1F2937;color:#9CA3AF;padding:20px;text-align:center;font-size:12px;}\n</style>\n</head>\n<body>\n<div class='wrapper'>\n<div class='container'>\n  <div class='header'>\n    <div style='font-size:44px;margin-bottom:10px;'>🔴</div>\n    <h2 style='margin:0;font-size:22px;'>Pilne przypomnienie</h2>\n    <p style='margin:8px 0 0 0;opacity:0.9;'>Przeterminowana faktura | {{ $('⚙️ Przygotuj dane faktur').item.json.klientNazwa }}</p>\n  </div>\n  <div class='body'>\n    <p style='font-size:15px;'>Hej,</p>\n    <div style='background:#FEF2F2;border-left:4px solid #DC2626;padding:15px;border-radius:0 8px 8px 0;margin-bottom:20px;color:#7F1D1D;line-height:1.7;'>\n      {{ $json.aiEmailContent }}\n    </div>\n    <div class='urgent-box'>\n      <div class='invoice-row'><span>📄 Numer faktury:</span><strong>{{ $('⚙️ Przygotuj dane faktur').item.json.numerFaktury }}</strong></div>\n      <div class='invoice-row'><span>📅 Termin płatności:</span><strong style='color:#DC2626;'>{{ $('⚙️ Przygotuj dane faktur').item.json.dataplatnosciPL }} (PRZEKROCZONY)</strong></div>\n      <div class='invoice-row'><span>📦 Pakiet:</span><strong>{{ $('⚙️ Przygotuj dane faktur').item.json.pakiet }}</strong></div>\n    </div>\n    <div class='total'>🚨 Zaległość: {{ $('⚙️ Przygotuj dane faktur').item.json.kwotaBrutto }} PLN</div>\n    <div class='bank-box'>\n      <p style='margin:0 0 8px 0;font-weight:bold;'>🏦 Dane do natychmiastowego przelewu:</p>\n      <div style='padding:4px 0;'><strong>Konto:</strong> PL00 0000 0000 0000 0000 0000 0000</div>\n      <div style='padding:4px 0;'><strong>Tytuł:</strong> {{ $('⚙️ Przygotuj dane faktur').item.json.numerFaktury }}</div>\n      <div style='padding:4px 0;'><strong>Kwota:</strong> {{ $('⚙️ Przygotuj dane faktur').item.json.kwotaBrutto }} PLN</div>\n    </div>\n    <div class='contact-box'>\n      <strong>💬 Masz problem z płatnością?</strong><br>\n      Zadzwoń lub napisz do nas - znajdziemy rozwiązanie.<br>\n      📞 +48 123 456 789 | ✉️ faktury@agencja.pl\n    </div>\n  </div>\n  <div class='footer'>Twoja Agencja Marketingowa | faktury@agencja.pl | +48 123 456 789</div>\n</div>\n</div>\n</body>\n</html>",
+        "options": {
+          "replyTo": "faktury@agencja.pl"
+        }
+      },
+      "id": "4b5abdf6-8cd6-4c8b-b2af-95315df457ec",
+      "name": "📧 Wyślij przypomnienie 2 (14 dni)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        3088,
+        0
+      ],
+      "webhookId": "7f3ff01f-c959-400a-b67f-e22620c68721"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "value": "TWOJE_SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        },
+        "sheetName": {
+          "value": "Faktury",
+          "__rl": true,
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "PRZETERMINOWANA",
+            "Przypomnienie 2": "TAK"
+          }
+        },
+        "options": {}
+      },
+      "id": "6750b56b-def8-4c1b-9dcd-cffd6bef8c03",
+      "name": "📊 Sheets - Aktualizuj status PRZETERMINOWANA",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        3088,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.clickup.com/api/v2/task/{{ $('⚙️ Przygotuj dane faktur').item.json.clickupTaskId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "343324a2-c5e2-4d1c-9dfc-5bb28b8d5716",
+      "name": "🔴 ClickUp - Status PRZETERMINOWANA + Priorytet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        3088,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "wlasciciel@agencja.pl",
+        "subject": "=🚨 PILNE - Przeterminowana faktura {{ $('⚙️ Przygotuj dane faktur').item.json.kwotaBrutto }} PLN - {{ $('⚙️ Przygotuj dane faktur').item.json.klientNazwa }}",
+        "message": "=<div style='font-family:Arial;max-width:500px;margin:0 auto;padding:20px;'>\n  <div style='background:#DC2626;color:white;padding:20px;border-radius:8px;margin-bottom:15px;'>\n    <h2 style='margin:0;'>🚨 Faktura przeterminowana!</h2>\n    <p style='margin:8px 0 0 0;opacity:0.9;'>Wymagana interwencja właściciela</p>\n  </div>\n  <div style='background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:15px;margin-bottom:15px;'>\n    <p style='margin:0 0 8px 0;'><strong>Klient:</strong> {{ $('⚙️ Przygotuj dane faktur').item.json.klientNazwa }}</p>\n    <p style='margin:0 0 8px 0;'><strong>Email:</strong> {{ $('⚙️ Przygotuj dane faktur').item.json.klientEmail }}</p>\n    <p style='margin:0 0 8px 0;'><strong>Faktura:</strong> {{ $('⚙️ Przygotuj dane faktur').item.json.numerFaktury }}</p>\n    <p style='margin:0 0 8px 0;'><strong>Kwota:</strong> <span style='color:#DC2626;font-size:18px;font-weight:bold;'>{{ $('⚙️ Przygotuj dane faktur').item.json.kwotaBrutto }} PLN</span></p>\n    <p style='margin:0;'><strong>Termin był:</strong> {{ $('⚙️ Przygotuj dane faktur').item.json.dataplatnosciPL }}</p>\n  </div>\n  <p style='font-size:13px;color:#6B7280;'>Wysłano już 2 automatyczne przypomnienia. Zalecany kontakt telefoniczny z klientem.</p>\n  <a href='mailto:{{ $('⚙️ Przygotuj dane faktur').item.json.klientEmail }}' style='background:#DC2626;color:white;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold;'>📞 Napisz do klienta</a>\n</div>",
+        "options": {}
+      },
+      "id": "42631325-370a-41be-8dd9-decc269ddfcb",
+      "name": "🚨 Alert właściciel - faktura przeterminowana",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        3088,
+        480
+      ],
+      "webhookId": "28e65547-3df5-4e50-ac19-8656f3bed0e1"
+    }
+  ],
+  "connections": {
+    "⏰ Cron - 1 dzień miesiąca 8:00": {
+      "main": [
+        [
+          {
+            "node": "📊 Pobierz aktywnych klientów",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Pobierz aktywnych klientów": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Przygotuj dane faktur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Przygotuj dane faktur": {
+      "main": [
+        [
+          {
+            "node": "🤖 AI - Generuj treść emaila",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 AI - Generuj treść emaila": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Połącz dane z AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Połącz dane z AI": {
+      "main": [
+        [
+          {
+            "node": "📧 Wyślij fakturę do klienta",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📊 Zapisz fakturę w Sheets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📌 ClickUp - Dodaj komentarz do zadania",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "🔄 ClickUp - Aktualizuj pola zadania",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "⏳ Czekaj 7 dni",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏳ Czekaj 7 dni": {
+      "main": [
+        [
+          {
+            "node": "🔍 Sprawdź status po 7 dniach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Sprawdź status po 7 dniach": {
+      "main": [
+        [
+          {
+            "node": "❓ Czy nadal nieopłacona?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Czy nadal nieopłacona?": {
+      "main": [
+        [
+          {
+            "node": "🤖 AI - Treść przypomnienia 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 AI - Treść przypomnienia 1": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Połącz dane przypomnienia 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Połącz dane przypomnienia 1": {
+      "main": [
+        [
+          {
+            "node": "📧 Wyślij przypomnienie 1 (7 dni)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📊 Sheets - Aktualizuj status Przypomnienie 1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "🔄 ClickUp - Status Przypomnienie 1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "⏳ Czekaj kolejne 7 dni",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏳ Czekaj kolejne 7 dni": {
+      "main": [
+        [
+          {
+            "node": "🔍 Sprawdź status po 14 dniach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Sprawdź status po 14 dniach": {
+      "main": [
+        [
+          {
+            "node": "❓ Czy nadal nieopłacona po 14 dniach?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Czy nadal nieopłacona po 14 dniach?": {
+      "main": [
+        [
+          {
+            "node": "🤖 AI - Treść przypomnienia 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 AI - Treść przypomnienia 2": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Połącz dane przypomnienia 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Połącz dane przypomnienia 2": {
+      "main": [
+        [
+          {
+            "node": "📧 Wyślij przypomnienie 2 (14 dni)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📊 Sheets - Aktualizuj status PRZETERMINOWANA",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "🔴 ClickUp - Status PRZETERMINOWANA + Priorytet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "🚨 Alert właściciel - faktura przeterminowana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "db97b65d-d5e6-4e36-801c-d2ac8ab08b23",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:11:36.408Z",
+      "createdAt": "2026-04-04T10:11:36.408Z",
+      "role": "workflow:owner",
+      "workflowId": "Zl4tuWR3NQrNvqLb",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
