@@ -1,0 +1,144 @@
+{
+  "updatedAt": "2026-04-22T15:40:05.002Z",
+  "createdAt": "2026-04-22T15:36:04.889Z",
+  "id": "5AJUWyw80qIf0Wpz",
+  "name": "Dostępy",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "events": [
+          "folderCreated"
+        ],
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUpTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "4bb46c5c-c2c4-4f17-938b-dd1b05f12ff3",
+      "name": "ClickUp Trigger",
+      "webhookId": "941926ad-737a-48d1-9856-61e79e1a22f6",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "spreadsheet",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        0
+      ],
+      "id": "6cd49033-27ce-4711-a432-3c9aab2ccf13",
+      "name": "Create spreadsheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "Clickup_api\n\nGoogle sheets id\n              secret\n\ngogle analytics api\ngoogle ads api\nmetricol api \nmeta ads apo\n\nmail smtp"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "d18d3957-030c-4a76-a3c0-22c8f4b1ebb2",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "ae3df93f-8a40-4e04-90f0-1fbc769e972a",
+      "name": "Add label to message",
+      "webhookId": "28b0d5d2-9a0a-42f9-91a3-44ff2ffe0ff9",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "UZClcStQjFuAT5TN",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "ClickUp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Create spreadsheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create spreadsheet": {
+      "main": [
+        [
+          {
+            "node": "Add label to message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label to message": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "626e0142-93d0-429e-9fdc-4b9bbf979c8c",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-22T15:36:04.895Z",
+      "createdAt": "2026-04-22T15:36:04.895Z",
+      "role": "workflow:owner",
+      "workflowId": "5AJUWyw80qIf0Wpz",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
