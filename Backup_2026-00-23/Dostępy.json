@@ -1,0 +1,292 @@
+{
+  "updatedAt": "2026-04-23T12:36:56.506Z",
+  "createdAt": "2026-04-22T15:36:04.889Z",
+  "id": "5AJUWyw80qIf0Wpz",
+  "name": "Dostępy",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "events": [
+          "folderCreated"
+        ],
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUpTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "4bb46c5c-c2c4-4f17-938b-dd1b05f12ff3",
+      "name": "ClickUp Trigger",
+      "webhookId": "941926ad-737a-48d1-9856-61e79e1a22f6",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "spreadsheet",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        0
+      ],
+      "id": "6cd49033-27ce-4711-a432-3c9aab2ccf13",
+      "name": "Create spreadsheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        624,
+        0
+      ],
+      "id": "dc053386-1f45-4fd9-916f-91e44ade4ee6",
+      "name": "Meta",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LJcXaUcjE7gmtQIs",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        800,
+        0
+      ],
+      "id": "8b8c7818-6ee7-4774-91c4-d1b895f38731",
+      "name": "Metricol",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LJcXaUcjE7gmtQIs",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1008,
+        0
+      ],
+      "id": "2b67ce67-5241-4ae1-8e04-b711394b4763",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        880,
+        208
+      ],
+      "id": "c3471bd9-f855-4d6f-b32e-e784bb35eca6",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "dfGH1X05V8r8kttH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1360,
+        0
+      ],
+      "id": "87faabdd-f6ea-48e4-bdf4-4c2fcb5b5cc7",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1232,
+        208
+      ],
+      "id": "8411f49e-fae9-497b-869f-a3ceb52b5a38",
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "dddc34e6-df50-40d0-b335-70eea0a4925c",
+      "name": "Add label to message",
+      "webhookId": "dd564a2b-d6ca-4a90-bc6a-036c6a2f194d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "UZClcStQjFuAT5TN",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "ClickUp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Create spreadsheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create spreadsheet": {
+      "main": [
+        [
+          {
+            "node": "Add label to message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meta": {
+      "main": [
+        [
+          {
+            "node": "Metricol",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Metricol": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label to message": {
+      "main": [
+        [
+          {
+            "node": "Meta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "a31ec499-e13f-44ea-bba0-af1ce873b4dc",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-22T15:36:04.895Z",
+      "createdAt": "2026-04-22T15:36:04.895Z",
+      "role": "workflow:owner",
+      "workflowId": "5AJUWyw80qIf0Wpz",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
