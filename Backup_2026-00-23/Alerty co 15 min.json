@@ -1,0 +1,254 @@
+{
+  "updatedAt": "2026-04-18T18:00:36.311Z",
+  "createdAt": "2026-04-18T18:00:35.076Z",
+  "id": "PuzpBkRfqeRLY2ar",
+  "name": "Alerty co 15 min",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 6-17 * * *"
+            }
+          ]
+        }
+      },
+      "id": "008e7591-7196-4048-b60f-f5fe66cef9bc",
+      "name": "SCHEDULER - Co 15 min (6:00-17:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst nowMin = now.getHours() * 60 + now.getMinutes();\nconst startMin = 8 * 60;\nconst minPoStart = nowMin - startMin;\n\nreturn [{\n  json: {\n    listId: '901522609104',\n    listRaporty: '901522609109',\n    listAlerty: '901522609082',\n    token: 'pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE',\n    nowMin,\n    minPoStart,\n    startMin,\n    rapPolMin: 13 * 60,\n    rapKonMin: 17 * 60,\n    progNiskiStan: 30,\n    progSpoznMin: 15,\n    progSpoznZarzad: 3,\n    zarzadEmail: 'autoleady@gmail.com',\n    mgrEmail: 'testautoleady@gmail.com',\n    sysEmail: 'testautoleady@gmail.com',\n    dataStr: now.toLocaleDateString('pl-PL'),\n    timeStr: now.toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'}),\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "e167e127-012d-4db6-8552-963a59e5fb10",
+      "name": "SETUP - Konfiguracja",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('SETUP - Konfiguracja').item.json;\nconst { nowMin, startMin, minPoStart, rapPolMin, progNiskiStan, progSpoznMin } = cfg;\n\nlet tasks = [];\nconst firstJson = $input.first().json;\n\nif (firstJson.tasks && Array.isArray(firstJson.tasks)) {\n  tasks = firstJson.tasks;\n} else if (Array.isArray(firstJson)) {\n  tasks = firstJson;\n} else {\n  tasks = $input.all().map(item => item.json);\n}\n\ntasks = tasks.filter(t => t.id && t.custom_fields);\n\nconst alerty = [];\nconst stats = {\n  lacznie: tasks.length,\n  obecni: 0,\n  spoznieni: 0,\n  nieobecni: 0,\n  bezRapPol: 0,\n  niskaIlosc: 0,\n  wymagaUwagi: 0\n};\n\n// ============================================\n// MECHANIZM DEDUPLIKACJI\n// Sprawdź kiedy ostatnio wysłano alert dla danego taska+typu\n// Używamy custom field \"Uwagi Managera\" lub date_updated jako proxy\n// GŁÓWNA LOGIKA: alert tego samego typu dla tego samego taska\n// wysyłamy max raz na X minut\n// ============================================\nconst COOLDOWN_SPOZNIENIE   = 240; // min - spóźnienie: raz na 4h (już wiemy, nie spam)\nconst COOLDOWN_NIEOBECNOSC  = 60;  // min - nieobecność: co godzinę\nconst COOLDOWN_BRAK_RAP_POL = 30;  // min - brak raportu pol: co 30 min\nconst COOLDOWN_NISKI_STAN   = 60;  // min - niski stan: co godzinę\n\n// Klucz: taskId_typ → timestamp ostatniego alertu\n// Przechowujemy w custom field \"date_updated\" taska jako proxy\n// LUB sprawdzamy przez pole tekstowe w tasku\n// \n// Najprostsze rozwiązanie: sprawdź date_updated taska\n// Jeśli task był update'owany niedawno przez system = alert już wysłano\n\nfunction minutySinceMs(ms) {\n  const now = Date.now();\n  return Math.floor((now - parseInt(ms)) / 60000);\n}\n\ntasks.forEach(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => {\n    if (f.value !== undefined && f.value !== null) {\n      cf[f.name] = f.value;\n    }\n  });\n\n  const imie    = task.name.trim();\n  const taskId  = task.id;\n  const taskUrl = task.url;\n  const email   = cf['Email'] || cfg.mgrEmail;\n\n  const gPrzyjscia  = cf['Godzina Przyjścia'] || cf['Godzina Przyjscia'] || null;\n  const stan13      = parseInt(cf['Stan o 13:00']    || '0') || 0;\n  const stanPocz    = parseInt(cf['Stan Początkowy'] || cf['Stan Poczatkowy'] || '0') || 0;\n  const rapPol      = cf['Raport Połówkowy'] || cf['Raport Polowkowy'] || null;\n  const liczbaSpozn = parseInt(cf['Liczba Spóźnień (łącznie)'] || '0') || 0;\n  const status      = (task.status?.status || '').toLowerCase();\n\n  // ---- Minuty od ostatniej aktualizacji taska ----\n  const minutesSinceUpdate = minutySinceMs(task.date_updated || task.date_created || 0);\n\n  if (status === 'wymaga uwagi') stats.wymagaUwagi++;\n\n  // ---- OBECNOŚĆ I SPÓŹNIENIE ----\n  if (gPrzyjscia && gPrzyjscia.trim() !== '') {\n    stats.obecni++;\n\n    const parts = gPrzyjscia.split(':');\n    if (parts.length === 2) {\n      const hP        = parseInt(parts[0]) || 0;\n      const mP        = parseInt(parts[1]) || 0;\n      const przyjMin  = hP * 60 + mP;\n      const spoznMinut = przyjMin - startMin;\n\n      if (spoznMinut > progSpoznMin) {\n        stats.spoznieni++;\n\n        // DEDUPLIKACJA SPÓŹNIENIA:\n        // Wyślij alert spóźnienia TYLKO jeśli:\n        // - to pierwsza rejestracja (liczbaSpozn zmiana) - task był update'owany < 30 min temu\n        // - LUB minęło więcej niż COOLDOWN od ostatniego alertu\n        // \n        // Heurystyka: jeśli task był zaktualizowany < 20 min temu\n        // = właśnie się zarejestrowała = wyślij alert (pierwsze spóźnienie tego dnia)\n        // Jeśli update był dawno = już wiemy o tym spóźnieniu = nie wysyłaj ponownie\n        \n        const czyNoweSpoznienie = minutesSinceUpdate < 20;\n        const czyPoKooldownie   = minutesSinceUpdate > COOLDOWN_SPOZNIENIE;\n\n        if (czyNoweSpoznienie || czyPoKooldownie) {\n          alerty.push({\n            typ:          'spoznienie',\n            ikona:        '⚠️',\n            taskId,\n            taskUrl,\n            imie,\n            email,\n            info:         `Spóźnienie ${spoznMinut} min (łącznie: ${liczbaSpozn + 1}x)`,\n            pilne:        liczbaSpozn >= cfg.progSpoznZarzad,\n            spoznMin:     spoznMinut,\n            liczbaSpozn,\n            czyNowe:      czyNoweSpoznienie\n          });\n        }\n        // else: znamy to spóźnienie, nie spamujemy\n      }\n    }\n  } else if (minPoStart > 30) {\n    stats.nieobecni++;\n\n    // DEDUPLIKACJA NIEOBECNOŚCI:\n    // Wyślij alert co COOLDOWN_NIEOBECNOSC minut\n    // Sprawdź przez minutesSinceUpdate:\n    // Pierwsze wykrycie: task nie był update'owany = minutesSinceUpdate duże = wyślij\n    // Kolejne: nie aktualizujemy taska przy braku osoby = zawsze duże = PROBLEM\n    //\n    // Rozwiązanie: użyj nowMin jako \"okna\"\n    // Wysyłaj alert nieobecności tylko co pełną godzinę (np. 9:00, 10:00...)\n    // lub przy pierwszym wykryciu (minPoStart == 31-45)\n    \n    const czyPierwszeWykrycie = minPoStart >= 30 && minPoStart <= 45;\n    const czyCykliczne        = nowMin % 60 < 15; // pierwsze 15 min każdej godziny\n\n    if (czyPierwszeWykrycie || czyCykliczne) {\n      alerty.push({\n        typ:    'nieobecnosc',\n        ikona:  '❌',\n        taskId,\n        taskUrl,\n        imie,\n        email,\n        info:   `Nieobecna ${minPoStart} min po starcie`,\n        pilne:  minPoStart > 60\n      });\n    }\n  }\n\n  // ---- BRAK RAPORTU POŁÓWKOWEGO ----\n  const rapPolOddany = cf['Raport Połówkowy Oddany'] === true\n    || cf['Raport Połówkowy Oddany'] === 'true'\n    || cf['Raport Polowkowy Oddany'] === true\n    || !!rapPol;\n\n  if (nowMin > rapPolMin + 30 && !rapPolOddany && gPrzyjscia) {\n    stats.bezRapPol++;\n\n    // DEDUPLIKACJA BRAK RAPORTU POŁ:\n    // Wysyłaj tylko:\n    // - raz zaraz po 13:30 (nowMin w oknie 810-825)\n    // - raz po 14:00 (nowMin w oknie 840-855) jeśli dalej brak\n    // - raz po 14:30 jako ostatnie przypomnienie\n    \n    const okno1 = nowMin >= rapPolMin + 30  && nowMin < rapPolMin + 45;  // 13:30-13:45\n    const okno2 = nowMin >= rapPolMin + 60  && nowMin < rapPolMin + 75;  // 14:00-14:15\n    const okno3 = nowMin >= rapPolMin + 90  && nowMin < rapPolMin + 105; // 14:30-14:45\n\n    if (okno1 || okno2 || okno3) {\n      alerty.push({\n        typ:      'brak_raportu_pol',\n        ikona:    '📋',\n        taskId,\n        taskUrl,\n        imie,\n        email,\n        info:     `Brak raportu połówkowego (po ${okno1 ? '13:30' : okno2 ? '14:00' : '14:30'})`,\n        pilne:    nowMin > rapPolMin + 60,\n        oknoAlertu: okno1 ? 1 : okno2 ? 2 : 3\n      });\n    }\n  }\n\n  // ---- NISKI STAN ----\n  const stanAktualny = stan13 > 0 ? stan13 : stanPocz;\n  if (stanAktualny > 0 && stanAktualny < progNiskiStan && gPrzyjscia) {\n    stats.niskaIlosc++;\n\n    // DEDUPLIKACJA NISKI STAN:\n    // Task był update'owany gdy wpisano niski stan\n    // Jeśli minutesSinceUpdate < 30 = świeże = wyślij\n    // Jeśli minutesSinceUpdate > COOLDOWN = przypomnij (ale rzadko)\n    \n    const czySwiezyAlert  = minutesSinceUpdate < 30;\n    const czyPoKooldownie = minutesSinceUpdate > COOLDOWN_NISKI_STAN;\n\n    if (czySwiezyAlert || czyPoKooldownie) {\n      alerty.push({\n        typ:    'niski_stan',\n        ikona:  '🔴',\n        taskId,\n        taskUrl,\n        imie,\n        email,\n        info:   `Niski stan produktu: ${stanAktualny} szt. (próg: ${progNiskiStan})`,\n        pilne:  true\n      });\n    }\n  }\n});\n\nconst maAlerty = alerty.length > 0;\nconst maPilne  = alerty.some(a => a.pilne);\n\nreturn [{\n  json: {\n    ...cfg,\n    alerty,\n    stats,\n    maAlerty,\n    maPilne,\n    liczbaAlertow: alerty.length,\n    _debug: {\n      tasksZnalezione: tasks.length,\n      inputFormat: Array.isArray(firstJson) ? 'array' : (firstJson.tasks ? 'tasks_object' : 'items')\n    }\n  }\n}];"
+      },
+      "id": "a3e3c682-7bc3-4f7a-a485-0d7583868a74",
+      "name": "ANALIZA - Sprawdź Problemy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c-alert",
+              "leftValue": "={{ $json.maAlerty }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "92224ae4-8ca4-43f1-ad66-856332b7adc4",
+      "name": "IF - Są Alerty?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        768,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\n\nconst kolorMap = {\n  spoznienie: '#fff3cd',\n  nieobecnosc: '#f8d7da',\n  brak_raportu_pol: '#d1ecf1',\n  niski_stan: '#f8d7da'\n};\n\nconst listaHTML = d.alerty.map(a => {\n  const kolor = kolorMap[a.typ] || '#f8f9fa';\n  const border = a.pilne ? '#dc3545' : '#ffc107';\n  return `\n  <div style=\"background:${kolor};padding:12px;border-radius:6px;margin:8px 0;border-left:4px solid ${border};\">\n    <strong>${a.ikona} ${a.imie}</strong>\n    ${a.pilne ? '<span style=\"color:red;font-weight:bold;\"> 🚨 PILNE</span>' : ''}\n    <br>\n    <span style=\"color:#555;font-size:13px;\">${a.info}</span>\n    <br>\n    <a href=\"${a.taskUrl}\" style=\"font-size:12px;color:#667eea;\">→ Zobacz task w ClickUp</a>\n  </div>`;\n}).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;\">\n<div style=\"background:#e74c3c;color:white;padding:20px;border-radius:10px 10px 0 0;\">\n  <h2 style=\"margin:0;\">🔔 Alert Systemu - ${d.timeStr}</h2>\n  <p style=\"opacity:0.85;margin:5px 0 0;\">Hostessy | ${d.dataStr}</p>\n</div>\n<div style=\"background:white;padding:20px;border:1px solid #eee;\">\n  <div style=\"display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;\">\n    <div style=\"background:#e8f5e9;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:green;\">${d.stats.obecni}</b><br><small>Obecni</small>\n    </div>\n    <div style=\"background:#fce4ec;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:red;\">${d.stats.nieobecni}</b><br><small>Nieobecni</small>\n    </div>\n    <div style=\"background:#fff3e0;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:orange;\">${d.stats.spoznieni}</b><br><small>Spóźnieni</small>\n    </div>\n    <div style=\"background:#fce4ec;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:red;\">${d.liczbaAlertow}</b><br><small>Alertów</small>\n    </div>\n  </div>\n  <h3 style=\"color:#e74c3c;\">⚠️ Lista Problemów (${d.liczbaAlertow})</h3>\n  ${listaHTML}\n</div>\n<div style=\"background:#f8f9fa;padding:10px;text-align:center;border:1px solid #eee;border-radius:0 0 10px 10px;\">\n  <small style=\"color:#888;\">Automatyczny monitoring co 15 min | ${d.timeStr}</small>\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...d,\n    emailHTML: html,\n    emailSubject: `🔔 Alert Hostessy | ${d.liczbaAlertow} problemów | ${d.timeStr} | ${d.maPilne ? '🚨 PILNE' : ''}`\n  }\n}];\n"
+      },
+      "id": "d4a99bde-89f3-470a-bf8c-eb4932f43348",
+      "name": "BUDUJ - Email Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "team": "90152423592",
+        "space": "901510700896",
+        "folderless": true,
+        "list": "=901522609104",
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        352,
+        16
+      ],
+      "id": "ec74e037-63e1-4bb6-895a-dad9c713d55f",
+      "name": "Get many tasks",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('BUDUJ - Email Alert').item.json.zarzadEmail }}",
+        "subject": "={{ $('BUDUJ - Email Alert').item.json.emailSubject }}",
+        "message": "={{ $('BUDUJ - Email Alert').item.json.emailHTML }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1264,
+        -64
+      ],
+      "id": "f3889593-51e4-4a96-bc2d-972b018fb21d",
+      "name": "Send a message",
+      "webhookId": "c6f1df06-bbcd-47ea-804b-39b1d37e7ac5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "UZClcStQjFuAT5TN",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Co 15min sprawdza czy są jakieś alerty lub coś się dzieje",
+        "height": 368,
+        "width": 1616,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -144,
+        -112
+      ],
+      "typeVersion": 1,
+      "id": "c2af824d-44bd-4b3d-a095-4564f780f2de",
+      "name": "Sticky Note3"
+    }
+  ],
+  "connections": {
+    "SCHEDULER - Co 15 min (6:00-17:00)": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Konfiguracja",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Konfiguracja": {
+      "main": [
+        [
+          {
+            "node": "Get many tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ANALIZA - Sprawdź Problemy": {
+      "main": [
+        [
+          {
+            "node": "IF - Są Alerty?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Są Alerty?": {
+      "main": [
+        [
+          {
+            "node": "BUDUJ - Email Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - Email Alert": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many tasks": {
+      "main": [
+        [
+          {
+            "node": "ANALIZA - Sprawdź Problemy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "01e7647e-2745-456f-883d-29a308e7979f",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-18T18:00:35.090Z",
+      "createdAt": "2026-04-18T18:00:35.090Z",
+      "role": "workflow:owner",
+      "workflowId": "PuzpBkRfqeRLY2ar",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
