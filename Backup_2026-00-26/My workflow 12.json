@@ -1,0 +1,77 @@
+{
+  "updatedAt": "2026-04-24T14:37:20.958Z",
+  "createdAt": "2026-04-24T13:19:53.819Z",
+  "id": "QQ5bvREfXz1fDcQx",
+  "name": "My workflow 12",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": []
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "1oFJ9djrqswvZ-sVDgwZCbNlodcyPrGUg2AETzhdCqU4",
+          "mode": "list",
+          "cachedResultName": "Vinci",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1oFJ9djrqswvZ-sVDgwZCbNlodcyPrGUg2AETzhdCqU4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 426081012,
+          "mode": "list",
+          "cachedResultName": "STYCZEŃ CONTENT PLANNER",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1oFJ9djrqswvZ-sVDgwZCbNlodcyPrGUg2AETzhdCqU4/edit#gid=426081012"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c74b2224-29b2-4f8c-aa44-6806ed08f565",
+      "name": "Google Sheets Trigger",
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "LsMcyLq3er5RoUsE",
+          "name": "Google Sheets Trigger account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "99a0fb05-736f-4bbb-93c9-ddb56f17cda9",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-24T13:19:53.823Z",
+      "createdAt": "2026-04-24T13:19:53.823Z",
+      "role": "workflow:owner",
+      "workflowId": "QQ5bvREfXz1fDcQx",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
