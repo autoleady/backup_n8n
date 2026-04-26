@@ -1,0 +1,129 @@
+{
+  "updatedAt": "2026-04-24T13:57:09.307Z",
+  "createdAt": "2026-04-22T15:36:04.889Z",
+  "id": "5AJUWyw80qIf0Wpz",
+  "name": "Dostępy",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "resource": "spreadsheet",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        288,
+        0
+      ],
+      "id": "6cd49033-27ce-4711-a432-3c9aab2ccf13",
+      "name": "Create spreadsheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "team": "90152423592",
+        "events": [
+          "taskCreated"
+        ],
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUpTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "4bb46c5c-c2c4-4f17-938b-dd1b05f12ff3",
+      "name": "ClickUp Trigger",
+      "webhookId": "941926ad-737a-48d1-9856-61e79e1a22f6",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        496,
+        0
+      ],
+      "id": "691a83fd-529e-4d1f-a7e5-232f9cf7b639",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Create spreadsheet": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ClickUp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Create spreadsheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "75779ebd-cefb-4508-b123-1e7b034cf562",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-22T15:36:04.895Z",
+      "createdAt": "2026-04-22T15:36:04.895Z",
+      "role": "workflow:owner",
+      "workflowId": "5AJUWyw80qIf0Wpz",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
