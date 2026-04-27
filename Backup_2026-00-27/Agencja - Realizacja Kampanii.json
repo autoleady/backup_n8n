@@ -1,0 +1,537 @@
+{
+  "updatedAt": "2026-04-27T16:21:26.000Z",
+  "createdAt": "2026-04-04T10:11:52.999Z",
+  "id": "LsK3CBg47A9wR5C5",
+  "name": "Agencja - Realizacja Kampanii",
+  "active": false,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "2e239a01-4097-4b12-b436-4db2c1346357",
+      "name": "⏰ Sprawdzaj co 2h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -656,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "apiToken",
+        "operation": "getAll",
+        "list": "TWOJ_CLICKUP_LIST_ID",
+        "filters": {
+          "assignees": [],
+          "statuses": [
+            "gotowe do akceptacji"
+          ]
+        }
+      },
+      "id": "2abc3881-5951-4635-bed5-3b42ccc275d0",
+      "name": "📋 Pobierz zadania z ClickUp",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const tasks = $input.all();\nconst result = [];\n\nfor (const task of tasks) {\n  const t = task.json;\n  \n  const klientEmail = t.custom_fields?.find(f => f.name === 'Email Klienta')?.value || 'brak@email.com';\n  const klientNazwa = t.custom_fields?.find(f => f.name === 'Nazwa Klienta')?.value || 'Klient';\n  const tresc = t.custom_fields?.find(f => f.name === 'Treść Posta')?.value || t.description || '';\n  const platforma = t.custom_fields?.find(f => f.name === 'Platforma')?.value || 'Social Media';\n  const dataPublikacji = t.custom_fields?.find(f => f.name === 'Data Publikacji')?.value || '';\n  const emailWyslany = t.custom_fields?.find(f => f.name === 'Email Akceptacji Wysłany')?.value || 'NIE';\n  \n  if (emailWyslany === 'NIE' || emailWyslany === '' || emailWyslany === null) {\n    result.push({\n      json: {\n        taskId: t.id,\n        taskName: t.name,\n        klientEmail,\n        klientNazwa,\n        tresc,\n        platforma,\n        dataPublikacji,\n        taskUrl: t.url,\n        akceptacjaLink: `https://TWOJA_DOMENA.com/webhook/akceptacja?taskId=${t.id}&akcja=akceptuj`,\n        odrzucenieLink: `https://TWOJA_DOMENA.com/webhook/akceptacja?taskId=${t.id}&akcja=odrzuc`\n      }\n    });\n  }\n}\n\nreturn result;"
+      },
+      "id": "2b88eb66-2f89-49e8-b3c1-017fc072c7c7",
+      "name": "⚙️ Przetwórz zadania do akceptacji",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.klientEmail }}",
+        "subject": "=✅ Prośba o akceptację treści - {{ $json.platforma }} | {{ $json.klientNazwa }}",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n  <meta charset='UTF-8'>\n  <style>\n    body{font-family:Arial,sans-serif;color:#1F2937;margin:0;padding:0;background:#F9FAFB;}\n    .container{max-width:620px;margin:0 auto;}\n    .header{background:linear-gradient(135deg,#7C3AED,#5B21B6);color:white;padding:35px 30px;text-align:center;}\n    .body{background:white;padding:35px 30px;}\n    .content-box{background:#F8FAFC;border:2px solid #E2E8F0;border-radius:10px;padding:25px;margin:20px 0;}\n    .content-box pre{white-space:pre-wrap;font-family:Arial,sans-serif;font-size:15px;line-height:1.7;margin:0;color:#374151;}\n    .btn-accept{display:block;background:#10B981;color:white;padding:18px;border-radius:8px;text-decoration:none;font-weight:bold;text-align:center;font-size:16px;margin:10px 0;}\n    .btn-reject{display:block;background:#EF4444;color:white;padding:18px;border-radius:8px;text-decoration:none;font-weight:bold;text-align:center;font-size:16px;margin:10px 0;}\n    .meta{background:#EFF6FF;border-radius:8px;padding:15px;margin:15px 0;font-size:14px;}\n    .footer{background:#1F2937;color:#9CA3AF;padding:20px;text-align:center;font-size:12px;}\n    .tag{display:inline-block;background:#7C3AED;color:white;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:bold;}\n  </style>\n</head>\n<body>\n<div class='container'>\n  <div class='header'>\n    <div style='font-size:40px;margin-bottom:12px;'>✍️</div>\n    <h1 style='margin:0;font-size:22px;'>Treść czeka na Twoją akceptację</h1>\n    <p style='margin:10px 0 0 0;opacity:0.85;'>Przejrzyj i zatwierdź lub poproś o zmiany</p>\n  </div>\n  \n  <div class='body'>\n    <p>Hej <strong>{{ $json.klientNazwa }}</strong>!</p>\n    <p>Przygotowaliśmy dla Ciebie nową treść do publikacji. Prosimy o akceptację lub wskazanie zmian.</p>\n    \n    <div class='meta'>\n      <span class='tag'>{{ $json.platforma }}</span>\n      <span style='margin-left:10px;color:#4B5563;'>\n        📅 Planowana publikacja: <strong>{{ $json.dataPublikacji }}</strong>\n      </span>\n    </div>\n    \n    <div class='content-box'>\n      <p style='margin:0 0 10px 0;font-weight:bold;color:#7C3AED;font-size:12px;text-transform:uppercase;letter-spacing:1px;'>Treść do akceptacji:</p>\n      <pre>{{ $json.tresc }}</pre>\n    </div>\n    \n    <p style='font-weight:bold;margin-bottom:10px;'>Co chcesz zrobić?</p>\n    \n    <a href='{{ $json.akceptacjaLink }}' class='btn-accept'>✅ AKCEPTUJĘ - Publikuj zgodnie z planem</a>\n    <a href='{{ $json.odrzucenieLink }}' class='btn-reject'>✏️ PROSZĘ O ZMIANY - Odpisz co zmienić</a>\n    \n    <p style='color:#6B7280;font-size:13px;margin-top:20px;'>Masz uwagi? Odpisz bezpośrednio na tego maila opisując co chciałbyś/chciałabyś zmienić.</p>\n  </div>\n  \n  <div class='footer'>\n    <p>Twoja Agencja Marketingowa | kontakt@agencja.pl<br>\n    Ta wiadomość dotyczy projektu: {{ $json.taskName }}</p>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {
+          "replyTo": "pm@agencja.pl"
+        }
+      },
+      "id": "31ea5028-a42b-4830-b166-0d1e54e53a00",
+      "name": "📧 Wyślij email do akceptacji",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "f5a55f01-4415-4265-8160-c4b8fed44e62"
+    },
+    {
+      "parameters": {
+        "authentication": "apiToken",
+        "operation": "update",
+        "updateFields": {}
+      },
+      "id": "1dd706bb-75eb-431a-8b00-24bdb67774ba",
+      "name": "✅ Oznacz email jako wysłany w ClickUp",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "path": "akceptacja",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "d6df181c-fca3-40c3-9dd8-b9748089407e",
+      "name": "🔗 Webhook - Odpowiedź klienta",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        400
+      ],
+      "webhookId": "akceptacja-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const query = $input.first().json.query;\nconst taskId = query.taskId || '';\nconst akcja = query.akcja || '';\n\nreturn [{\n  json: {\n    taskId,\n    akcja,\n    isAkceptacja: akcja === 'akceptuj',\n    isOdrzucenie: akcja === 'odrzuc',\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "e0d22ae5-6907-4958-b174-4af249b639c9",
+      "name": "⚙️ Przetwórz odpowiedź",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "check-akcja",
+              "leftValue": "={{ $json.isAkceptacja }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "all"
+        },
+        "options": {}
+      },
+      "id": "55506838-8054-45dc-832c-51eca09bc446",
+      "name": "❓ Akceptacja czy odrzucenie?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "apiToken",
+        "operation": "update",
+        "updateFields": {
+          "status": "zaakceptowane"
+        }
+      },
+      "id": "d710755c-3940-4bed-a7e8-2891f8bae25a",
+      "name": "✅ ClickUp - Status: Zaakceptowane",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "apiToken",
+        "operation": "update",
+        "updateFields": {
+          "status": "do poprawek"
+        }
+      },
+      "id": "85146c94-9b27-4a9e-8afe-f48e9095880e",
+      "name": "🔄 ClickUp - Status: Do poprawek",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "specjalista@agencja.pl",
+        "subject": "=✅ AKCEPTACJA - Klient zatwierdził treść | Task: {{ $('⚙️ Przetwórz odpowiedź').item.json.taskId }}",
+        "message": "=<div style='font-family:Arial;max-width:500px;margin:0 auto;padding:20px;'>\n  <div style='background:#ECFDF5;border:2px solid #6EE7B7;border-radius:8px;padding:20px;'>\n    <h2 style='margin:0;color:#065F46;'>✅ Klient zaakceptował treść!</h2>\n    <p style='color:#065F46;'>Możesz publikować zgodnie z harmonogramem.</p>\n  </div>\n  <div style='background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:15px;margin-top:15px;'>\n    <p><strong>ID Zadania:</strong> {{ $('⚙️ Przetwórz odpowiedź').item.json.taskId }}</p>\n    <p><strong>Czas akceptacji:</strong> {{ $('⚙️ Przetwórz odpowiedź').item.json.timestamp }}</p>\n    <p><strong>Status w ClickUp:</strong> Zaakceptowane ✅</p>\n  </div>\n  <p style='margin-top:15px;'><strong>Następny krok:</strong> Zaplanuj publikację w Buffer/Hootsuite</p>\n</div>",
+        "options": {}
+      },
+      "id": "cb8f1d4a-062c-4bbf-9124-3c447c88a36d",
+      "name": "📧 Powiadom specjalistę - akceptacja",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        224,
+        320
+      ],
+      "webhookId": "e50ee28e-00a3-464c-a02e-644936780c10"
+    },
+    {
+      "parameters": {
+        "sendTo": "specjalista@agencja.pl",
+        "subject": "=✏️ POPRAWKI - Klient prosi o zmiany | Task: {{ $('⚙️ Przetwórz odpowiedź').item.json.taskId }}",
+        "message": "=<div style='font-family:Arial;max-width:500px;margin:0 auto;padding:20px;'>\n  <div style='background:#FEF2F2;border:2px solid #FCA5A5;border-radius:8px;padding:20px;'>\n    <h2 style='margin:0;color:#991B1B;'>✏️ Klient prosi o poprawki</h2>\n    <p style='color:#991B1B;'>Sprawdź odpowiedź klienta i nanieś zmiany.</p>\n  </div>\n  <div style='background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:15px;margin-top:15px;'>\n    <p><strong>ID Zadania:</strong> {{ $('⚙️ Przetwórz odpowiedź').item.json.taskId }}</p>\n    <p><strong>Status w ClickUp:</strong> Do poprawek 🔄</p>\n  </div>\n  <p style='margin-top:15px;'><strong>Następny krok:</strong> Sprawdź email od klienta z uwagami i zaktualizuj treść w ClickUp</p>\n</div>",
+        "options": {}
+      },
+      "id": "036508d7-4823-41c4-bff0-b9464e5e35e8",
+      "name": "📧 Powiadom specjalistę - poprawki",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        224,
+        512
+      ],
+      "webhookId": "4a9d9069-48e0-4b3a-9562-c7f1cd5c9c94"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<!DOCTYPE html>\n<html>\n<head><meta charset='UTF-8'><style>body{font-family:Arial;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#F9FAFB;}div{text-align:center;padding:40px;background:white;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,0.07);max-width:400px;}</style></head>\n<body>\n<div>\n  {{ $('⚙️ Przetwórz odpowiedź').item.json.isAkceptacja ? '<div style=\"font-size:60px\">✅</div><h2 style=\"color:#10B981\">Dziękujemy!</h2><p>Treść została zaakceptowana. Opublikujemy ją zgodnie z harmonogramem.</p>' : '<div style=\"font-size:60px\">✏️</div><h2 style=\"color:#F59E0B\">Przyjęto uwagi</h2><p>Nasz zespół naniesie poprawki i wyśle do ponownej akceptacji.</p>' }}\n  <p style='color:#9CA3AF;font-size:13px;margin-top:20px;'>Możesz zamknąć tę stronę</p>\n</div>\n</body>\n</html>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html"
+              }
+            ]
+          }
+        }
+      },
+      "id": "72a0ace3-7716-42ae-b081-7462c7006d29",
+      "name": "🌐 Pokaż stronę potwierdzenia",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "0d603743-617e-40e4-815a-47c1c3257137",
+      "name": "⏰ Monitoring ADS co 24h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -656,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getRows",
+        "documentId": {
+          "value": "TWOJE_GOOGLE_SHEETS_ID",
+          "__rl": true,
+          "mode": "id"
+        }
+      },
+      "id": "24427a8a-43fd-44c6-a5e3-b69d86e670be",
+      "name": "📊 Pobierz aktywne kampanie",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -448,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const campaigns = $input.all();\nconst alerts = [];\n\nfor (const camp of campaigns) {\n  const c = camp.json;\n  \n  const budzet = parseFloat(c['Budżet dzienny'] || 0);\n  const wydane = parseFloat(c['Wydane dzisiaj'] || 0);\n  const cpcTarget = parseFloat(c['CPC target'] || 0);\n  const cpcAktualny = parseFloat(c['CPC aktualny'] || 0);\n  const ctrTarget = parseFloat(c['CTR target'] || 0);\n  const ctrAktualny = parseFloat(c['CTR aktualny'] || 0);\n  const konwersje = parseInt(c['Konwersje dzisiaj'] || 0);\n  \n  const procentBudzetu = budzet > 0 ? (wydane / budzet) * 100 : 0;\n  const wzrostCPC = cpcTarget > 0 ? ((cpcAktualny - cpcTarget) / cpcTarget) * 100 : 0;\n  const spadekCTR = ctrTarget > 0 ? ((ctrTarget - ctrAktualny) / ctrTarget) * 100 : 0;\n  \n  const alerty = [];\n  let poziomAlertu = 'INFO';\n  \n  if (procentBudzetu >= 90) {\n    alerty.push(`🔴 Budżet wykorzystany w ${procentBudzetu.toFixed(0)}%`);\n    poziomAlertu = 'KRYTYCZNY';\n  } else if (procentBudzetu >= 75) {\n    alerty.push(`🟡 Budżet wykorzystany w ${procentBudzetu.toFixed(0)}%`);\n    if (poziomAlertu !== 'KRYTYCZNY') poziomAlertu = 'OSTRZEZENIE';\n  }\n  \n  if (wzrostCPC >= 30) {\n    alerty.push(`🔴 CPC wzrósł o ${wzrostCPC.toFixed(0)}% (target: ${cpcTarget} zł, aktualny: ${cpcAktualny} zł)`);\n    poziomAlertu = 'KRYTYCZNY';\n  } else if (wzrostCPC >= 15) {\n    alerty.push(`🟡 CPC wzrósł o ${wzrostCPC.toFixed(0)}%`);\n    if (poziomAlertu !== 'KRYTYCZNY') poziomAlertu = 'OSTRZEZENIE';\n  }\n  \n  if (spadekCTR >= 30) {\n    alerty.push(`🔴 CTR spadł o ${spadekCTR.toFixed(0)}% (target: ${ctrTarget}%, aktualny: ${ctrAktualny}%)`);\n    poziomAlertu = 'KRYTYCZNY';\n  }\n  \n  if (konwersje === 0 && wydane > 50) {\n    alerty.push(`🔴 Brak konwersji przy wydanych ${wydane} zł`);\n    poziomAlertu = 'KRYTYCZNY';\n  }\n  \n  if (alerty.length > 0) {\n    alerts.push({\n      json: {\n        kampaniaNazwa: c['Nazwa kampanii'] || 'Brak nazwy',\n        klientNazwa: c['Klient'] || 'Brak klienta',\n        specjalistaEmail: c['Email specjalisty'] || 'specjalista@agencja.pl',\n        platforma: c['Platforma'] || 'Google Ads',\n        budzet,\n        wydane,\n        procentBudzetu: procentBudzetu.toFixed(0),\n        cpcTarget,\n        cpcAktualny,\n        ctrTarget,\n        ctrAktualny,\n        konwersje,\n        alerty,\n        poziomAlertu,\n        alertyHTML: alerty.map(a => `<li style='padding:6px 0;'>${a}</li>`).join('')\n      }\n    });\n  }\n}\n\nif (alerts.length === 0) {\n  return [{ json: { brakAlertow: true, message: 'Wszystkie kampanie w normie' } }];\n}\n\nreturn alerts;"
+      },
+      "id": "b50386e2-fc6a-4dc5-b21a-303745c8815e",
+      "name": "⚙️ Analizuj kampanie i wykryj problemy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "check-has-alerts",
+              "leftValue": "={{ $json.brakAlertow }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notTrue"
+              }
+            }
+          ],
+          "combinator": "all"
+        },
+        "options": {}
+      },
+      "id": "77150f76-7d3f-4752-b1a7-008d42785cf0",
+      "name": "❓ Czy są alerty?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        0,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.specjalistaEmail }}",
+        "subject": "={{ $json.poziomAlertu === 'KRYTYCZNY' ? '🔴 KRYTYCZNY ALERT' : '🟡 OSTRZEŻENIE' }} - Kampania {{ $json.kampaniaNazwa }} | {{ $json.klientNazwa }}",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n  <meta charset='UTF-8'>\n  <style>\n    body{font-family:Arial,sans-serif;color:#1F2937;margin:0;padding:0;}\n    .container{max-width:580px;margin:0 auto;padding:20px;}\n    .header-red{background:#DC2626;color:white;padding:25px;border-radius:8px 8px 0 0;}\n    .header-yellow{background:#D97706;color:white;padding:25px;border-radius:8px 8px 0 0;}\n    .body{background:#F9FAFB;padding:25px;border:1px solid #E5E7EB;}\n    .alert-list{background:white;border:1px solid #E5E7EB;border-radius:8px;padding:15px 20px;margin:15px 0;}\n    .alert-list ul{margin:0;padding-left:5px;list-style:none;}\n    .metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:15px 0;}\n    .metric{background:white;border:1px solid #E5E7EB;border-radius:8px;padding:12px;text-align:center;}\n    .metric-value{font-size:22px;font-weight:bold;color:#DC2626;}\n    .metric-label{font-size:12px;color:#6B7280;margin-top:4px;}\n    .cta{display:inline-block;background:#2563EB;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;margin-top:15px;}\n    .footer{background:#374151;color:#9CA3AF;padding:15px;text-align:center;font-size:12px;border-radius:0 0 8px 8px;}\n  </style>\n</head>\n<body>\n<div class='container'>\n  <div class='{{ $json.poziomAlertu === \"KRYTYCZNY\" ? \"header-red\" : \"header-yellow\" }}'>\n    <h2 style='margin:0;font-size:20px;'>{{ $json.poziomAlertu === 'KRYTYCZNY' ? '🔴 ALERT KRYTYCZNY' : '🟡 OSTRZEŻENIE' }}</h2>\n    <p style='margin:8px 0 0 0;opacity:0.9;'>{{ $json.kampaniaNazwa }} | {{ $json.klientNazwa }}</p>\n  </div>\n  \n  <div class='body'>\n    <p>Wykryto problemy w kampanii wymagające Twojej uwagi:</p>\n    \n    <div class='alert-list'>\n      <ul>{{ $json.alertyHTML }}</ul>\n    </div>\n    \n    <p><strong>📊 Aktualne metryki kampanii:</strong></p>\n    <div class='metrics'>\n      <div class='metric'>\n        <div class='metric-value'>{{ $json.procentBudzetu }}%</div>\n        <div class='metric-label'>Budżet wykorzystany</div>\n      </div>\n      <div class='metric'>\n        <div class='metric-value'>{{ $json.wydane }} zł</div>\n        <div class='metric-label'>Wydane dzisiaj</div>\n      </div>\n      <div class='metric'>\n        <div class='metric-value'>{{ $json.cpcAktualny }} zł</div>\n        <div class='metric-label'>CPC aktualny</div>\n      </div>\n      <div class='metric'>\n        <div class='metric-value'>{{ $json.konwersje }}</div>\n        <div class='metric-label'>Konwersje dzisiaj</div>\n      </div>\n    </div>\n    \n    <a href='https://docs.google.com/spreadsheets/d/TWOJE_GOOGLE_SHEETS_ID' class='cta'>📊 Otwórz dashboard kampanii</a>\n  </div>\n  \n  <div class='footer'>Twoja Agencja Marketingowa | Alert wygenerowany automatycznie</div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "01af7fcc-347a-457e-9f58-3e0649b776de",
+      "name": "📧 Wyślij alert o kampanii",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        224,
+        704
+      ],
+      "webhookId": "82273da9-faab-4d43-b3d7-6635bbae1f87"
+    },
+    {
+      "parameters": {
+        "authentication": "apiToken",
+        "list": "TWOJ_CLICKUP_LIST_ID",
+        "name": "=⚠️ ALERT: {{ $json.kampaniaNazwa }} - {{ $json.poziomAlertu }}",
+        "additionalFields": {
+          "dueDate": "={{ Date.now() + 86400000 }}",
+          "priority": 1,
+          "status": "pilne"
+        }
+      },
+      "id": "e9351c9f-509b-476f-9a18-f081500462c9",
+      "name": "📋 Utwórz zadanie alertu w ClickUp",
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        224,
+        864
+      ]
+    }
+  ],
+  "connections": {
+    "⏰ Sprawdzaj co 2h": {
+      "main": [
+        [
+          {
+            "node": "📋 Pobierz zadania z ClickUp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Pobierz zadania z ClickUp": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Przetwórz zadania do akceptacji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Przetwórz zadania do akceptacji": {
+      "main": [
+        [
+          {
+            "node": "📧 Wyślij email do akceptacji",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "✅ Oznacz email jako wysłany w ClickUp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔗 Webhook - Odpowiedź klienta": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Przetwórz odpowiedź",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Przetwórz odpowiedź": {
+      "main": [
+        [
+          {
+            "node": "🌐 Pokaż stronę potwierdzenia",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "❓ Akceptacja czy odrzucenie?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Akceptacja czy odrzucenie?": {
+      "main": [
+        [
+          {
+            "node": "✅ ClickUp - Status: Zaakceptowane",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ ClickUp - Status: Zaakceptowane": {
+      "main": [
+        [
+          {
+            "node": "📧 Powiadom specjalistę - akceptacja",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 ClickUp - Status: Do poprawek": {
+      "main": [
+        [
+          {
+            "node": "📧 Powiadom specjalistę - poprawki",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ Monitoring ADS co 24h": {
+      "main": [
+        [
+          {
+            "node": "📊 Pobierz aktywne kampanie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Pobierz aktywne kampanie": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Analizuj kampanie i wykryj problemy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Analizuj kampanie i wykryj problemy": {
+      "main": [
+        [
+          {
+            "node": "❓ Czy są alerty?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Czy są alerty?": {
+      "main": [
+        [
+          {
+            "node": "📧 Wyślij alert o kampanii",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📋 Utwórz zadanie alertu w ClickUp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "c2de8eba-cea0-4694-8b08-f2b957932193",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:11:53.004Z",
+      "createdAt": "2026-04-04T10:11:53.004Z",
+      "role": "workflow:owner",
+      "workflowId": "LsK3CBg47A9wR5C5",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
