@@ -1,0 +1,559 @@
+{
+  "updatedAt": "2026-04-26T12:42:59.982Z",
+  "createdAt": "2026-04-08T13:52:13.815Z",
+  "id": "V50JzEZlb7B0F6Hi",
+  "name": "Onboarding pracownika/ Auto alert",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "get",
+        "id": "={{ $json.task_id }}",
+        "includeSubtasks": true
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        288,
+        64
+      ],
+      "id": "de0c0e92-85af-4591-8e10-76f3a785c13a",
+      "name": "Get a task",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1ptvE0vahYxCoFQxRiwzFSBJtz7um3saAxoYqNguehIs",
+          "mode": "list",
+          "cachedResultName": "Demo onboarding",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ptvE0vahYxCoFQxRiwzFSBJtz7um3saAxoYqNguehIs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Arkusz1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ptvE0vahYxCoFQxRiwzFSBJtz7um3saAxoYqNguehIs/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Mail": "={{ $json.email }}",
+            "Imie i Nazwisko": "={{ $('Code in JavaScript1').item.json.customFields[13].value }}",
+            "Telefon": "={{ $('Code in JavaScript1').item.json.customFields[31].date_created }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Imie i Nazwisko",
+              "displayName": "Imie i Nazwisko",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Telefon",
+              "displayName": "Telefon",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Mail",
+              "displayName": "Mail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        400,
+        304
+      ],
+      "id": "93d7bec8-ac6d-4ea7-a251-063fc6507c97",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gJeIt92xAAewPaaC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "id": "={{ $('Get a task').item.json.id }}",
+        "includeSubtasks": true
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        48,
+        304
+      ],
+      "id": "10213690-3884-4380-b5ff-c239ed73e5bd",
+      "name": "Get a task1",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Mail }}",
+        "subject": "Witaj zespole!",
+        "message": "=<!DOCTYPE html>\n<html lang=\"pl\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Witamy w zespole!</title>\n  <style>\n    body { font-family: Arial, sans-serif; background-color: #f7f7f7; text-align: center; padding: 50px; }\n    .card { background: #fff; padding: 30px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }\n    h1 { color: #4CAF50; }\n  </style>\n</head>\n<body>\n  <div class=\"card\">\n    <h1>Witamy w zespole!</h1>\n    <p>Cześć <strong>{{ $json['Imie i Nazwisko'] }}</strong>,</p>\n    <p>cieszymy się, że do nas dołączasz i już nie możemy się doczekać wspólnej pracy!</p>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        576,
+        304
+      ],
+      "id": "aee34516-fb0f-4187-9da0-d01346d74e91",
+      "name": "Send a message1",
+      "webhookId": "a3bd78be-ee42-4703-b6f4-659b02f75604",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "UZClcStQjFuAT5TN",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const root = item.json;\n\n  // próbujemy różne typowe ścieżki do custom fields\n  const fields =\n    root.customFields ||\n    root.custom_fields ||\n    root.fields ||\n    root.data?.customFields ||\n    root.data?.custom_fields ||\n    [];\n\n  return {\n    json: {\n      customFields: fields\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        64
+      ],
+      "id": "9a0f33d2-093a-4dd1-9540-db973068d0de",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "content": "Jeżeli w clickup nowe zadanie sysytem je szczytuje i zbiera dane,\npo czym jest zmiana typu danych",
+        "height": 208,
+        "width": 720,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "78fda35b-2611-43cb-b019-3204d7bd076d",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Zbiera dane po id zmienia wartości aby dalo sie zapisać w google sheets, po czym automatycznie wysyla maila",
+        "height": 208,
+        "width": 720,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        240
+      ],
+      "typeVersion": 1,
+      "id": "7ac6a715-31c3-483b-ac2b-91d83187e219",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "team": "90152423592",
+        "events": [
+          "taskCreated"
+        ],
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUpTrigger",
+      "typeVersion": 1,
+      "position": [
+        80,
+        64
+      ],
+      "id": "399b1db3-8041-427d-ad37-fb4798cd6c52",
+      "name": "ClickUp Trigger",
+      "webhookId": "85f29ef7-c034-4db5-8e10-840a0c1bf12e",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 6-17 * * *"
+            }
+          ]
+        }
+      },
+      "id": "0a89801c-3a9f-4eb7-81a5-57c861f7eb46",
+      "name": "SCHEDULER - Co 15 min (6:00-17:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        16,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst nowMin = now.getHours() * 60 + now.getMinutes();\nconst startMin = 8 * 60;\nconst minPoStart = nowMin - startMin;\n\nreturn [{\n  json: {\n    listId: '901522609104',\n    listRaporty: '901522609109',\n    listAlerty: '901522609082',\n    token: 'pk_284536279_ARCLCZPXOG0PMONQ5IBNKY5UJDI4HJRE',\n    nowMin,\n    minPoStart,\n    startMin,\n    rapPolMin: 13 * 60,\n    rapKonMin: 17 * 60,\n    progNiskiStan: 30,\n    progSpoznMin: 15,\n    progSpoznZarzad: 3,\n    zarzadEmail: 'autoleady@gmail.com',\n    mgrEmail: 'testautoleady@gmail.com',\n    sysEmail: 'testautoleady@gmail.com',\n    dataStr: now.toLocaleDateString('pl-PL'),\n    timeStr: now.toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'}),\n    now: now.toISOString()\n  }\n}];\n"
+      },
+      "id": "a9da2e07-f5e9-4b3d-8cea-30f868b8def7",
+      "name": "SETUP - Konfiguracja",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('SETUP - Konfiguracja').item.json;\nconst { nowMin, startMin, minPoStart, rapPolMin, progNiskiStan, progSpoznMin } = cfg;\n\nlet tasks = [];\nconst firstJson = $input.first().json;\n\nif (firstJson.tasks && Array.isArray(firstJson.tasks)) {\n  tasks = firstJson.tasks;\n} else if (Array.isArray(firstJson)) {\n  tasks = firstJson;\n} else {\n  tasks = $input.all().map(item => item.json);\n}\n\ntasks = tasks.filter(t => t.id && t.custom_fields);\n\nconst alerty = [];\nconst stats = {\n  lacznie: tasks.length,\n  obecni: 0,\n  spoznieni: 0,\n  nieobecni: 0,\n  bezRapPol: 0,\n  niskaIlosc: 0,\n  wymagaUwagi: 0\n};\n\n// ============================================\n// MECHANIZM DEDUPLIKACJI\n// Sprawdź kiedy ostatnio wysłano alert dla danego taska+typu\n// Używamy custom field \"Uwagi Managera\" lub date_updated jako proxy\n// GŁÓWNA LOGIKA: alert tego samego typu dla tego samego taska\n// wysyłamy max raz na X minut\n// ============================================\nconst COOLDOWN_SPOZNIENIE   = 240; // min - spóźnienie: raz na 4h (już wiemy, nie spam)\nconst COOLDOWN_NIEOBECNOSC  = 60;  // min - nieobecność: co godzinę\nconst COOLDOWN_BRAK_RAP_POL = 30;  // min - brak raportu pol: co 30 min\nconst COOLDOWN_NISKI_STAN   = 60;  // min - niski stan: co godzinę\n\n// Klucz: taskId_typ → timestamp ostatniego alertu\n// Przechowujemy w custom field \"date_updated\" taska jako proxy\n// LUB sprawdzamy przez pole tekstowe w tasku\n// \n// Najprostsze rozwiązanie: sprawdź date_updated taska\n// Jeśli task był update'owany niedawno przez system = alert już wysłano\n\nfunction minutySinceMs(ms) {\n  const now = Date.now();\n  return Math.floor((now - parseInt(ms)) / 60000);\n}\n\ntasks.forEach(task => {\n  const cf = {};\n  (task.custom_fields || []).forEach(f => {\n    if (f.value !== undefined && f.value !== null) {\n      cf[f.name] = f.value;\n    }\n  });\n\n  const imie    = task.name.trim();\n  const taskId  = task.id;\n  const taskUrl = task.url;\n  const email   = cf['Email'] || cfg.mgrEmail;\n\n  const gPrzyjscia  = cf['Godzina Przyjścia'] || cf['Godzina Przyjscia'] || null;\n  const stan13      = parseInt(cf['Stan o 13:00']    || '0') || 0;\n  const stanPocz    = parseInt(cf['Stan Początkowy'] || cf['Stan Poczatkowy'] || '0') || 0;\n  const rapPol      = cf['Raport Połówkowy'] || cf['Raport Polowkowy'] || null;\n  const liczbaSpozn = parseInt(cf['Liczba Spóźnień (łącznie)'] || '0') || 0;\n  const status      = (task.status?.status || '').toLowerCase();\n\n  // ---- Minuty od ostatniej aktualizacji taska ----\n  const minutesSinceUpdate = minutySinceMs(task.date_updated || task.date_created || 0);\n\n  if (status === 'wymaga uwagi') stats.wymagaUwagi++;\n\n  // ---- OBECNOŚĆ I SPÓŹNIENIE ----\n  if (gPrzyjscia && gPrzyjscia.trim() !== '') {\n    stats.obecni++;\n\n    const parts = gPrzyjscia.split(':');\n    if (parts.length === 2) {\n      const hP        = parseInt(parts[0]) || 0;\n      const mP        = parseInt(parts[1]) || 0;\n      const przyjMin  = hP * 60 + mP;\n      const spoznMinut = przyjMin - startMin;\n\n      if (spoznMinut > progSpoznMin) {\n        stats.spoznieni++;\n\n        // DEDUPLIKACJA SPÓŹNIENIA:\n        // Wyślij alert spóźnienia TYLKO jeśli:\n        // - to pierwsza rejestracja (liczbaSpozn zmiana) - task był update'owany < 30 min temu\n        // - LUB minęło więcej niż COOLDOWN od ostatniego alertu\n        // \n        // Heurystyka: jeśli task był zaktualizowany < 20 min temu\n        // = właśnie się zarejestrowała = wyślij alert (pierwsze spóźnienie tego dnia)\n        // Jeśli update był dawno = już wiemy o tym spóźnieniu = nie wysyłaj ponownie\n        \n        const czyNoweSpoznienie = minutesSinceUpdate < 20;\n        const czyPoKooldownie   = minutesSinceUpdate > COOLDOWN_SPOZNIENIE;\n\n        if (czyNoweSpoznienie || czyPoKooldownie) {\n          alerty.push({\n            typ:          'spoznienie',\n            ikona:        '⚠️',\n            taskId,\n            taskUrl,\n            imie,\n            email,\n            info:         `Spóźnienie ${spoznMinut} min (łącznie: ${liczbaSpozn + 1}x)`,\n            pilne:        liczbaSpozn >= cfg.progSpoznZarzad,\n            spoznMin:     spoznMinut,\n            liczbaSpozn,\n            czyNowe:      czyNoweSpoznienie\n          });\n        }\n        // else: znamy to spóźnienie, nie spamujemy\n      }\n    }\n  } else if (minPoStart > 30) {\n    stats.nieobecni++;\n\n    // DEDUPLIKACJA NIEOBECNOŚCI:\n    // Wyślij alert co COOLDOWN_NIEOBECNOSC minut\n    // Sprawdź przez minutesSinceUpdate:\n    // Pierwsze wykrycie: task nie był update'owany = minutesSinceUpdate duże = wyślij\n    // Kolejne: nie aktualizujemy taska przy braku osoby = zawsze duże = PROBLEM\n    //\n    // Rozwiązanie: użyj nowMin jako \"okna\"\n    // Wysyłaj alert nieobecności tylko co pełną godzinę (np. 9:00, 10:00...)\n    // lub przy pierwszym wykryciu (minPoStart == 31-45)\n    \n    const czyPierwszeWykrycie = minPoStart >= 30 && minPoStart <= 45;\n    const czyCykliczne        = nowMin % 60 < 15; // pierwsze 15 min każdej godziny\n\n    if (czyPierwszeWykrycie || czyCykliczne) {\n      alerty.push({\n        typ:    'nieobecnosc',\n        ikona:  '❌',\n        taskId,\n        taskUrl,\n        imie,\n        email,\n        info:   `Nieobecna ${minPoStart} min po starcie`,\n        pilne:  minPoStart > 60\n      });\n    }\n  }\n\n  // ---- BRAK RAPORTU POŁÓWKOWEGO ----\n  const rapPolOddany = cf['Raport Połówkowy Oddany'] === true\n    || cf['Raport Połówkowy Oddany'] === 'true'\n    || cf['Raport Polowkowy Oddany'] === true\n    || !!rapPol;\n\n  if (nowMin > rapPolMin + 30 && !rapPolOddany && gPrzyjscia) {\n    stats.bezRapPol++;\n\n    // DEDUPLIKACJA BRAK RAPORTU POŁ:\n    // Wysyłaj tylko:\n    // - raz zaraz po 13:30 (nowMin w oknie 810-825)\n    // - raz po 14:00 (nowMin w oknie 840-855) jeśli dalej brak\n    // - raz po 14:30 jako ostatnie przypomnienie\n    \n    const okno1 = nowMin >= rapPolMin + 30  && nowMin < rapPolMin + 45;  // 13:30-13:45\n    const okno2 = nowMin >= rapPolMin + 60  && nowMin < rapPolMin + 75;  // 14:00-14:15\n    const okno3 = nowMin >= rapPolMin + 90  && nowMin < rapPolMin + 105; // 14:30-14:45\n\n    if (okno1 || okno2 || okno3) {\n      alerty.push({\n        typ:      'brak_raportu_pol',\n        ikona:    '📋',\n        taskId,\n        taskUrl,\n        imie,\n        email,\n        info:     `Brak raportu połówkowego (po ${okno1 ? '13:30' : okno2 ? '14:00' : '14:30'})`,\n        pilne:    nowMin > rapPolMin + 60,\n        oknoAlertu: okno1 ? 1 : okno2 ? 2 : 3\n      });\n    }\n  }\n\n  // ---- NISKI STAN ----\n  const stanAktualny = stan13 > 0 ? stan13 : stanPocz;\n  if (stanAktualny > 0 && stanAktualny < progNiskiStan && gPrzyjscia) {\n    stats.niskaIlosc++;\n\n    // DEDUPLIKACJA NISKI STAN:\n    // Task był update'owany gdy wpisano niski stan\n    // Jeśli minutesSinceUpdate < 30 = świeże = wyślij\n    // Jeśli minutesSinceUpdate > COOLDOWN = przypomnij (ale rzadko)\n    \n    const czySwiezyAlert  = minutesSinceUpdate < 30;\n    const czyPoKooldownie = minutesSinceUpdate > COOLDOWN_NISKI_STAN;\n\n    if (czySwiezyAlert || czyPoKooldownie) {\n      alerty.push({\n        typ:    'niski_stan',\n        ikona:  '🔴',\n        taskId,\n        taskUrl,\n        imie,\n        email,\n        info:   `Niski stan produktu: ${stanAktualny} szt. (próg: ${progNiskiStan})`,\n        pilne:  true\n      });\n    }\n  }\n});\n\nconst maAlerty = alerty.length > 0;\nconst maPilne  = alerty.some(a => a.pilne);\n\nreturn [{\n  json: {\n    ...cfg,\n    alerty,\n    stats,\n    maAlerty,\n    maPilne,\n    liczbaAlertow: alerty.length,\n    _debug: {\n      tasksZnalezione: tasks.length,\n      inputFormat: Array.isArray(firstJson) ? 'array' : (firstJson.tasks ? 'tasks_object' : 'items')\n    }\n  }\n}];"
+      },
+      "id": "18566107-f98e-4a35-90b7-4ad972ab608c",
+      "name": "ANALIZA - Sprawdź Problemy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c-alert",
+              "leftValue": "={{ $json.maAlerty }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "518fd672-1a68-499a-973d-28be41b91e61",
+      "name": "IF - Są Alerty?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        816,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\n\nconst kolorMap = {\n  spoznienie: '#fff3cd',\n  nieobecnosc: '#f8d7da',\n  brak_raportu_pol: '#d1ecf1',\n  niski_stan: '#f8d7da'\n};\n\nconst listaHTML = d.alerty.map(a => {\n  const kolor = kolorMap[a.typ] || '#f8f9fa';\n  const border = a.pilne ? '#dc3545' : '#ffc107';\n  return `\n  <div style=\"background:${kolor};padding:12px;border-radius:6px;margin:8px 0;border-left:4px solid ${border};\">\n    <strong>${a.ikona} ${a.imie}</strong>\n    ${a.pilne ? '<span style=\"color:red;font-weight:bold;\"> 🚨 PILNE</span>' : ''}\n    <br>\n    <span style=\"color:#555;font-size:13px;\">${a.info}</span>\n    <br>\n    <a href=\"${a.taskUrl}\" style=\"font-size:12px;color:#667eea;\">→ Zobacz task w ClickUp</a>\n  </div>`;\n}).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;\">\n<div style=\"background:#e74c3c;color:white;padding:20px;border-radius:10px 10px 0 0;\">\n  <h2 style=\"margin:0;\">🔔 Alert Systemu - ${d.timeStr}</h2>\n  <p style=\"opacity:0.85;margin:5px 0 0;\">Hostessy | ${d.dataStr}</p>\n</div>\n<div style=\"background:white;padding:20px;border:1px solid #eee;\">\n  <div style=\"display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;\">\n    <div style=\"background:#e8f5e9;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:green;\">${d.stats.obecni}</b><br><small>Obecni</small>\n    </div>\n    <div style=\"background:#fce4ec;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:red;\">${d.stats.nieobecni}</b><br><small>Nieobecni</small>\n    </div>\n    <div style=\"background:#fff3e0;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:orange;\">${d.stats.spoznieni}</b><br><small>Spóźnieni</small>\n    </div>\n    <div style=\"background:#fce4ec;padding:10px 15px;border-radius:8px;text-align:center;flex:1;\">\n      <b style=\"font-size:22px;color:red;\">${d.liczbaAlertow}</b><br><small>Alertów</small>\n    </div>\n  </div>\n  <h3 style=\"color:#e74c3c;\">⚠️ Lista Problemów (${d.liczbaAlertow})</h3>\n  ${listaHTML}\n</div>\n<div style=\"background:#f8f9fa;padding:10px;text-align:center;border:1px solid #eee;border-radius:0 0 10px 10px;\">\n  <small style=\"color:#888;\">Automatyczny monitoring co 15 min | ${d.timeStr}</small>\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...d,\n    emailHTML: html,\n    emailSubject: `🔔 Alert Hostessy | ${d.liczbaAlertow} problemów | ${d.timeStr} | ${d.maPilne ? '🚨 PILNE' : ''}`\n  }\n}];\n"
+      },
+      "id": "2666791c-c546-4ccb-a06e-a5eaebb1d009",
+      "name": "BUDUJ - Email Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "team": "90152423592",
+        "space": "901510700896",
+        "folderless": true,
+        "list": "=901522609104",
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        448,
+        768
+      ],
+      "id": "cfd7d455-b3c6-4d35-afdb-8e95773ff1bc",
+      "name": "Get many tasks",
+      "credentials": {
+        "clickUpApi": {
+          "id": "sISzjXs5CiRIiysY",
+          "name": "ClickUp account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('BUDUJ - Email Alert').item.json.zarzadEmail }}",
+        "subject": "={{ $('BUDUJ - Email Alert').item.json.emailSubject }}",
+        "message": "={{ $('BUDUJ - Email Alert').item.json.emailHTML }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1328,
+        656
+      ],
+      "id": "f8312141-c9d2-4192-b260-3dd248350182",
+      "name": "Send a message",
+      "webhookId": "c6f1df06-bbcd-47ea-804b-39b1d37e7ac5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "UZClcStQjFuAT5TN",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Zebranie danych oraz sprawdzenie czy są alerty",
+        "height": 208,
+        "width": 1008,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        704
+      ],
+      "typeVersion": 1,
+      "id": "474b5623-197c-4abd-ac00-9d0d166b7e12",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "Przygotowanie alertu oraz wysylka",
+        "height": 224,
+        "width": 368,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1104,
+        576
+      ],
+      "typeVersion": 1,
+      "id": "3c8bdccc-db9e-48a3-9487-8787db4fcd03",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fields = $json.custom_fields || [];\nconst getEmail = () => {\n  const field = fields.find(f => f.name && f.name.toLowerCase().includes('mail'));\n  return field?.value || '';\n};\n\nconst email = getEmail();\n\nif (!email) {\n  // Jeśli brak emaila, przerwij workflow lub ustaw domyślny\n  return [{ json: { skip: true } }];\n}\n\nconst nazwa_firmy = email.split('@')[1] || 'Nieznana firma';\n\nreturn [{\n  json: {\n    email,\n    nazwa_firmy,\n    status: 'nowy_lead'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        304
+      ],
+      "id": "6c4238dd-c146-4180-a797-eee8f1dfc0d2",
+      "name": "Code in JavaScript2"
+    }
+  ],
+  "connections": {
+    "Get a task": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a task1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Get a task1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ClickUp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get a task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCHEDULER - Co 15 min (6:00-17:00)": {
+      "main": [
+        [
+          {
+            "node": "SETUP - Konfiguracja",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SETUP - Konfiguracja": {
+      "main": [
+        [
+          {
+            "node": "Get many tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ANALIZA - Sprawdź Problemy": {
+      "main": [
+        [
+          {
+            "node": "IF - Są Alerty?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Są Alerty?": {
+      "main": [
+        [
+          {
+            "node": "BUDUJ - Email Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUDUJ - Email Alert": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many tasks": {
+      "main": [
+        [
+          {
+            "node": "ANALIZA - Sprawdź Problemy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "006a5634-db3f-41ad-9034-42509904b203",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-08T13:52:13.820Z",
+      "createdAt": "2026-04-08T13:52:13.820Z",
+      "role": "workflow:owner",
+      "workflowId": "V50JzEZlb7B0F6Hi",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
