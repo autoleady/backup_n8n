@@ -1,0 +1,234 @@
+{
+  "updatedAt": "2026-04-27T16:19:50.000Z",
+  "createdAt": "2026-04-04T10:17:32.790Z",
+  "id": "kOVHasP5OHMLIw7v",
+  "name": "N8N Auto Backup & Update",
+  "active": false,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Scheduler - Codziennie 2:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1232,
+        592
+      ],
+      "id": "946b0e76-1ae2-4b28-8cb8-fb8f833eca33"
+    },
+    {
+      "parameters": {
+        "command": "mkdir -p /backup/n8n/$(date +%Y-%m-%d) && echo \"DIR_CREATED\""
+      },
+      "name": "Utwórz folder backup",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        592
+      ],
+      "id": "2c892a42-418c-4ba7-8f42-88b68a79e31c"
+    },
+    {
+      "parameters": {
+        "command": "n8n export:workflow --all --output=/backup/n8n/$(date +%Y-%m-%d)/workflows.json && echo \"WORKFLOWS_OK\""
+      },
+      "name": "Backup Workflows",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        480
+      ],
+      "id": "a5144c98-fbe0-4f69-bb58-12429c1bce37"
+    },
+    {
+      "parameters": {
+        "command": "n8n export:credentials --all --output=/backup/n8n/$(date +%Y-%m-%d)/credentials.json && echo \"CREDENTIALS_OK\""
+      },
+      "name": "Backup Credentials",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        688
+      ],
+      "id": "4929b015-f9fe-441f-9242-e03ab9aa1044"
+    },
+    {
+      "parameters": {
+        "command": "cp -r ~/.n8n /backup/n8n/$(date +%Y-%m-%d)/n8n_config 2>/dev/null; cp /etc/n8n/.env /backup/n8n/$(date +%Y-%m-%d)/.env 2>/dev/null; echo \"CONFIG_OK\""
+      },
+      "name": "Backup Config",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        880
+      ],
+      "id": "623b969b-3151-4099-ade2-0bec0a63a07b"
+    },
+    {
+      "parameters": {
+        "command": "find /backup/n8n -maxdepth 1 -type d -mtime +30 -exec rm -rf {} \\; 2>/dev/null; echo \"CLEANUP_OK\""
+      },
+      "name": "Usuń stare backupy (30 dni)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        592
+      ],
+      "id": "2c62a14d-f2d8-4614-bf27-85631f6672fd"
+    },
+    {
+      "parameters": {
+        "command": "n8n --version 2>/dev/null || npx n8n --version 2>/dev/null"
+      },
+      "name": "Pobierz aktualną wersję",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        592
+      ],
+      "id": "f85b5f06-6411-4cc5-a189-4a9e0c198e92"
+    },
+    {
+      "parameters": {
+        "command": "npm show n8n version 2>/dev/null || curl -s https://registry.npmjs.org/n8n/latest | grep -o '\"version\":\"[^\"]*\"' | cut -d'\"' -f4"
+      },
+      "name": "Pobierz najnowszą wersję NPM",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        736
+      ],
+      "id": "82f888ac-ba57-4a6d-94d4-d89505743001"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $('Pobierz aktualną wersję').item.json.stdout.trim() }}",
+              "operation": "notEqual",
+              "value2": "={{ $('Pobierz najnowszą wersję NPM').item.json.stdout.trim() }}"
+            }
+          ]
+        }
+      },
+      "name": "Czy jest nowa wersja?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        656
+      ],
+      "id": "d5ed9f36-24ce-41ef-83c3-1cd859a872ac"
+    },
+    {
+      "parameters": {
+        "command": "npm install -g n8n@latest 2>&1 && echo \"UPDATE_SUCCESS\" || echo \"UPDATE_FAILED\""
+      },
+      "name": "Aktualizuj N8N",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        96,
+        560
+      ],
+      "id": "1b0579f8-efa3-4019-b38e-343fcfaba388"
+    },
+    {
+      "parameters": {
+        "jsCode": "const backupStatus = $('Backup Workflows').item.json.stdout || '';\nconst credStatus = $('Backup Credentials').item.json.stdout || '';\nconst configStatus = $('Backup Config').item.json.stdout || '';\nconst currentVer = $('Pobierz aktualną wersję').item.json.stdout?.trim() || 'unknown';\nconst latestVer = $('Pobierz najnowszą wersję NPM').item.json.stdout?.trim() || 'unknown';\nconst updateStatus = $('Aktualizuj N8N').item?.json?.stdout || 'Nie aktualizowano';\n\nconst backupDate = new Date().toLocaleString('pl-PL');\n\nconst report = {\n  timestamp: backupDate,\n  backup: {\n    workflows: backupStatus.includes('WORKFLOWS_OK') ? '✅ OK' : '❌ BŁĄD',\n    credentials: credStatus.includes('CREDENTIALS_OK') ? '✅ OK' : '❌ BŁĄD',\n    config: configStatus.includes('CONFIG_OK') ? '✅ OK' : '❌ BŁĄD',\n  },\n  version: {\n    current: currentVer,\n    latest: latestVer,\n    updated: updateStatus.includes('UPDATE_SUCCESS') ? '✅ Zaktualizowano' : '⏭️ Brak aktualizacji'\n  },\n  summary: 'Raport backup N8N - ' + backupDate\n};\n\nreturn [{ json: report }];"
+      },
+      "name": "Generuj raport",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        592
+      ],
+      "id": "ca10a9c3-d08f-4819-a4c5-32f390ce49ce"
+    },
+    {
+      "parameters": {
+        "fromEmail": "backup@twojadomena.pl",
+        "toEmail": "admin@twojadomena.pl",
+        "subject": "=N8N Backup & Update - {{ $json.timestamp }}",
+        "text": "=📊 RAPORT N8N BACKUP & UPDATE\n\n⏰ Data: {{ $json.timestamp }}\n\n📁 BACKUP:\n- Workflows: {{ $json.backup.workflows }}\n- Credentials: {{ $json.backup.credentials }}\n- Config: {{ $json.backup.config }}\n\n🔄 WERSJA:\n- Aktualna: {{ $json.version.current }}\n- Najnowsza: {{ $json.version.latest }}\n- Status: {{ $json.version.updated }}\n\n---\nAutomatyczny raport N8N",
+        "options": {}
+      },
+      "name": "Wyślij email raport",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        544,
+        592
+      ],
+      "id": "75689a53-b515-4ca0-9702-9c3dc2a8e5fc",
+      "webhookId": "315102f2-6eb3-4ec6-a236-db6d44626e36"
+    }
+  ],
+  "connections": {
+    "Czy jest nowa wersja?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Generuj raport",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generuj raport": {
+      "main": [
+        [
+          {
+            "node": "Wyślij email raport",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "3c666ad5-a508-4eab-8f9f-fced6b35b4c5",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-04T10:17:32.793Z",
+      "createdAt": "2026-04-04T10:17:32.793Z",
+      "role": "workflow:owner",
+      "workflowId": "kOVHasP5OHMLIw7v",
+      "projectId": "MQ48RGzyImrotRcN"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}
